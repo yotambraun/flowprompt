@@ -59,6 +59,14 @@ from flowprompt.testing.experiment import (
     VariantStats,
 )
 
+# Comparison (convenience API)
+from flowprompt.testing.compare import (
+    ComparisonResult,
+    VariantResult,
+    acompare,
+    compare,
+)
+
 # Runner
 from flowprompt.testing.runner import (
     ABTestRunner,
@@ -101,6 +109,11 @@ __all__ = [
     "t_test_means",
     "bayesian_ab_test",
     "run_significance_test",
+    # Comparison
+    "compare",
+    "acompare",
+    "ComparisonResult",
+    "VariantResult",
     # Runner
     "ABTestRunner",
     "ExperimentSummary",

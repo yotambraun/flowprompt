@@ -87,6 +87,9 @@ from flowprompt.storage.yaml_loader import (
     load_prompts,
 )
 
+# Testing (convenience API)
+from flowprompt.testing.compare import ComparisonResult, acompare, compare
+
 # Tracing
 from flowprompt.tracing.otel import (
     SpanContext,
@@ -120,6 +123,10 @@ __all__ = [
     "UsageInfo",
     "get_tracer",
     "configure_tracer",
+    # Testing (convenience API)
+    "compare",
+    "acompare",
+    "ComparisonResult",
     # Storage
     "PromptConfig",
     "PromptRegistry",
