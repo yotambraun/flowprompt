@@ -2,8 +2,6 @@
 
 **Stop guessing which prompt works. Measure it.**
 
-The only LLM framework with built-in A/B testing for prompts.
-
 [![PyPI](https://img.shields.io/pypi/v/flowprompt-ai.svg)](https://pypi.org/project/flowprompt-ai/)
 [![Downloads](https://static.pepy.tech/badge/flowprompt-ai)](https://pepy.tech/project/flowprompt-ai)
 [![Downloads/Month](https://static.pepy.tech/badge/flowprompt-ai/month)](https://pepy.tech/project/flowprompt-ai)
@@ -14,31 +12,64 @@ The only LLM framework with built-in A/B testing for prompts.
 
 ---
 
-## Why FlowPrompt?
+## 30-Second Quickstart
 
-**Every LLM framework gives you structured outputs. Only FlowPrompt tells you which prompt actually works better.**
-
-- **A/B Testing** - Statistical significance testing for prompt variants
-- **Type safety** - Define prompts as Python classes with full IDE support
-- **Structured outputs** - Automatic validation with Pydantic models
-- **Multi-provider** - OpenAI, Anthropic, Google, or local models via LiteLLM
-- **Production-ready** - Caching, tracing, cost tracking built-in
+Define prompts as Python classes. No API key needed to preview messages:
 
 ```python
 from flowprompt import Prompt
 from pydantic import BaseModel
 
 class ExtractUser(Prompt):
-    system: str = "Extract user info from text."
-    user: str = "Text: {text}"
+    system = "Extract user info from text."
+    user = "Text: {text}"
 
     class Output(BaseModel):
         name: str
         age: int
 
+# Preview messages -- works without an API key
+print(ExtractUser(text="John is 25").to_messages())
+# [{'role': 'system', 'content': 'Extract user info from text.'},
+#  {'role': 'user', 'content': 'Text: John is 25'}]
+
+# Run against any LLM
 result = ExtractUser(text="John is 25").run(model="gpt-4o")
 print(result.name)  # "John"
 print(result.age)   # 25
+```
+
+---
+
+## Compare Prompts in 5 Lines
+
+The killer feature: find which prompt actually works better, with statistical significance.
+
+```python
+from flowprompt import Prompt, compare
+
+class Concise(Prompt):
+    system = "Be concise."
+    user = "Summarize: {text}"
+
+class Detailed(Prompt):
+    system = "Be thorough and detailed."
+    user = "Provide a comprehensive summary of: {text}"
+
+result = compare(
+    {"concise": Concise, "detailed": Detailed},
+    inputs=[{"text": "Python is a programming language..."}, ...],
+    model="gpt-4o-mini",
+    success_fn=lambda out: len(out) > 20,
+)
+print(result)
+# Comparison Results
+# ========================================
+#   concise: 90% success, 245ms avg, 50 runs << WINNER
+#   detailed: 72% success, 410ms avg, 50 runs
+#
+#   p=0.0231 (SIGNIFICANT)
+#   effect size: -20.00%
 ```
 
 ---
@@ -62,157 +93,31 @@ pip install flowprompt-ai[multimodal] # Images, PDFs, audio, video
 
 ---
 
-## Features at a Glance
-
-| Feature | What it does |
-|---------|--------------|
-| [**A/B Testing**](#ab-testing) | Statistical significance testing for prompts |
-| [Structured Outputs](#structured-outputs) | Type-safe responses with Pydantic validation |
-| [Multi-Provider](#multi-provider-support) | OpenAI, Anthropic, Google, Ollama via LiteLLM |
-| [Optimization](#automatic-optimization) | DSPy-style automatic prompt improvement |
-| [Caching](#caching) | Reduce costs 50-90% with built-in caching |
-| [Observability](#observability) | Track costs, tokens, and latency |
-| [Streaming](#streaming) | Real-time responses with `stream()` and `astream()` |
-| [Multimodal](#multimodal-support) | Images, documents, audio, and video |
-| [YAML Prompts](#yaml-prompts) | Store prompts in version-controlled files |
-
----
-
-## Structured Outputs
-
-Define your expected output as a Pydantic model. FlowPrompt handles parsing and validation automatically.
-
-```python
-from pydantic import BaseModel, Field
-
-class SentimentAnalysis(Prompt):
-    system: str = "Analyze the sentiment of the given text."
-    user: str = "Text: {text}"
-
-    class Output(BaseModel):
-        sentiment: str = Field(description="positive, negative, or neutral")
-        confidence: float = Field(ge=0.0, le=1.0)
-        keywords: list[str]
-
-result = SentimentAnalysis(text="I love this product!").run(model="gpt-4o")
-print(result.sentiment)   # "positive"
-print(result.confidence)  # 0.95
-print(result.keywords)    # ["love", "product"]
-```
-
----
-
-## Multi-Provider Support
-
-Switch between providers with a single parameter. No code changes needed.
-
-```python
-# OpenAI
-result = prompt.run(model="gpt-4o")
-
-# Anthropic Claude
-result = prompt.run(model="anthropic/claude-3-5-sonnet-20241022")
-
-# Google Gemini
-result = prompt.run(model="gemini/gemini-2.0-flash-exp")
-
-# Local models via Ollama
-result = prompt.run(model="ollama/llama3")
-```
-
----
-
-## Streaming
-
-Get real-time responses for better user experience.
-
-```python
-# Synchronous
-for chunk in prompt.stream(model="gpt-4o"):
-    print(chunk.delta, end="", flush=True)
-
-# Asynchronous
-async for chunk in prompt.astream(model="gpt-4o"):
-    print(chunk.delta, end="", flush=True)
-```
-
----
-
-## Caching
-
-Reduce API costs by caching identical requests.
-
-```python
-from flowprompt import configure_cache, get_cache
-
-# Enable caching with 1-hour TTL
-configure_cache(enabled=True, default_ttl=3600)
-
-# First call hits the API
-result1 = MyPrompt(text="hello").run(model="gpt-4o")
-
-# Second identical call uses cache (instant, free)
-result2 = MyPrompt(text="hello").run(model="gpt-4o")
-
-# Check performance
-print(get_cache().stats)
-# {'hits': 1, 'misses': 1, 'hit_rate': 0.5}
-```
-
----
-
-## Observability
-
-Track costs, tokens, and latency with OpenTelemetry integration.
-
-```python
-from flowprompt import get_tracer
-
-result = MyPrompt(text="hello").run(model="gpt-4o")
-
-summary = get_tracer().get_summary()
-print(f"Cost: ${summary['total_cost_usd']:.4f}")
-print(f"Tokens: {summary['total_tokens']}")
-print(f"Latency: {summary['avg_latency_ms']:.0f}ms")
-```
-
----
-
-## Automatic Optimization
-
-Improve prompts automatically using training data (inspired by DSPy).
-
-```python
-from flowprompt.optimize import optimize, ExampleDataset, Example, ExactMatch
-
-# Create training examples
-dataset = ExampleDataset([
-    Example(input={"text": "John is 25"}, output={"name": "John", "age": 25}),
-    Example(input={"text": "Alice is 30"}, output={"name": "Alice", "age": 30}),
-])
-
-# Optimize with few-shot examples
-result = optimize(
-    ExtractUser,
-    dataset=dataset,
-    metric=ExactMatch(),
-    strategy="fewshot",  # or "instruction", "optuna", "bootstrap"
-)
-
-print(f"Improved by: {result.best_score:.0%}")
-OptimizedPrompt = result.best_prompt_class
-```
-
----
-
 ## A/B Testing
 
-Run controlled experiments to compare prompt variants with statistical significance.
+FlowPrompt is the only Python LLM framework with built-in A/B testing.
+
+**Quick comparison** with `compare()`:
+
+```python
+from flowprompt import compare
+
+result = compare(
+    {"v1": PromptV1, "v2": PromptV2, "v3": PromptV3},
+    inputs=test_data,
+    model="gpt-4o-mini",
+    confidence_level=0.95,
+)
+
+if result.winner:
+    print(f"Winner: {result.winner} (p={result.statistical_result.p_value:.4f})")
+```
+
+**Full experiment control** when you need production traffic splitting, sticky user assignment, or multi-armed bandits:
 
 ```python
 from flowprompt.testing import create_simple_experiment
 
-# Setup experiment
 config, runner = create_simple_experiment(
     name="prompt_comparison",
     control_prompt=PromptV1,
@@ -221,106 +126,68 @@ config, runner = create_simple_experiment(
 )
 
 runner.start_experiment(config.id)
-
-# Get variant for a user (sticky assignment)
 variant = runner.get_variant(config.id, user_id="user123")
 result = runner.run_prompt(config.id, variant.name, input_data={"text": "..."})
 
-# Check results
 summary = runner.get_summary(config.id)
 if summary.winner:
     print(f"Winner: {summary.winner.name}")
-    print(f"Effect: {summary.statistical_result.effect_size:+.1%}")
 ```
+
+**Six allocation strategies:** Random, Round-Robin, Weighted, Epsilon-Greedy, UCB, Thompson Sampling.
+
+**Four statistical tests:** Z-test, Chi-squared, Welch's t-test, Bayesian.
 
 ---
 
-## Multimodal Support
+## Structured Outputs
 
-Work with images, documents, audio, and video.
+Define expected output as a Pydantic model. Parsing and validation are automatic.
 
 ```python
-from flowprompt.multimodal import VisionPrompt, DocumentPrompt
+from pydantic import BaseModel, Field
 
-# Analyze images
-class ImageAnalyzer(VisionPrompt):
-    system: str = "Describe what you see in the image."
-    user: str = "What's in this image?"
+class Sentiment(Prompt):
+    system = "Analyze the sentiment of the given text."
+    user = "Text: {text}"
 
-result = ImageAnalyzer().with_image("photo.jpg").run(model="gpt-4o")
+    class Output(BaseModel):
+        sentiment: str = Field(description="positive, negative, or neutral")
+        confidence: float = Field(ge=0.0, le=1.0)
 
-# Summarize documents
-class DocSummarizer(DocumentPrompt):
-    system: str = "Summarize documents concisely."
-    user: str = "Summarize the key points."
-
-result = DocSummarizer().with_document("report.pdf").run(model="gpt-4o")
+result = Sentiment(text="I love this!").run(model="gpt-4o")
+print(result.sentiment)   # "positive"
+print(result.confidence)  # 0.95
 ```
+
+Models that support native JSON schema get guaranteed valid output. Others fall back to JSON mode with schema hints.
 
 ---
 
-## YAML Prompts
+## Multi-Provider Support
 
-Store prompts in version-controlled files for team collaboration.
-
-```yaml
-# prompts/extract_user.yaml
-name: ExtractUser
-version: "1.0.0"
-system: You are a precise data extractor.
-user: "Extract from: {{ text }}"
-output_schema:
-  type: object
-  properties:
-    name: { type: string }
-    age: { type: integer }
-  required: [name, age]
-```
+Switch between 100+ providers with a single parameter.
 
 ```python
-from flowprompt import load_prompt, load_prompts
-
-# Load single prompt
-ExtractUser = load_prompt("prompts/extract_user.yaml")
-
-# Load all prompts from directory
-prompts = load_prompts("prompts/")
+result = prompt.run(model="gpt-4o")                              # OpenAI
+result = prompt.run(model="anthropic/claude-3-5-sonnet-20241022") # Anthropic
+result = prompt.run(model="gemini/gemini-2.0-flash-exp")          # Google
+result = prompt.run(model="ollama/llama3")                        # Local
 ```
 
 ---
 
-## CLI
+## More Features
 
-**Optimize prompts from the command line:**
-
-```bash
-# Optimize a prompt with training examples
-flowprompt optimize my_prompt.py examples.json --strategy fewshot
-
-# Output:
-# Loading prompt from my_prompt.py...
-#   Found: ExtractUser
-# Loading examples from examples.json...
-#   Loaded 10 examples
-# Evaluating baseline...
-#   Baseline accuracy: 65.0%
-# Optimizing with strategy='fewshot'...
-# --------------------------------------------------
-# OPTIMIZATION COMPLETE
-# --------------------------------------------------
-#   Before: 65.0% accuracy
-#   After:  89.0% accuracy
-#   Change: +24.0%
-```
-
-**Other commands:**
-
-```bash
-flowprompt init my-project       # Initialize new project
-flowprompt run prompt.yaml       # Run a prompt
-flowprompt test                  # Validate prompts
-flowprompt stats                 # View usage statistics
-```
+| Feature | Example |
+|---------|---------|
+| **Caching** | `configure_cache(enabled=True, default_ttl=3600)` -- cut costs 50-90% |
+| **Optimization** | DSPy-style auto-improvement with `flowprompt.optimize` |
+| **Streaming** | `for chunk in prompt.stream(model="gpt-4o"): ...` |
+| **Observability** | `get_tracer().get_summary()` -- costs, tokens, latency |
+| **YAML prompts** | `load_prompt("prompts/my_prompt.yaml")` |
+| **Multimodal** | Images, PDFs, audio via `flowprompt.multimodal` |
+| **CLI** | `flowprompt optimize prompt.py examples.json` |
 
 ---
 
@@ -328,26 +195,24 @@ flowprompt stats                 # View usage statistics
 
 | Feature | FlowPrompt | LangChain | Instructor | DSPy |
 |---------|:----------:|:---------:|:----------:|:----:|
-| **A/B Testing** | **Yes** | No | No | No |
-| Type-safe prompts | **Yes** | No | Yes | No |
-| Structured outputs | **Yes** | Partial | Yes | No |
-| Auto-optimization | **Yes** | No | No | Yes |
-| Multi-provider | **Yes** | Yes | Yes | Partial |
-| Caching | **Yes** | Partial | No | No |
-| Cost tracking | **Yes** | Partial | No | No |
-| Streaming | **Yes** | Yes | No | No |
-| YAML prompts | **Yes** | No | No | No |
-| Import time | **<100ms** | ~2s | <100ms | ~6s |
+| **A/B testing** | **Built-in** | No | No | No |
+| Structured outputs | Yes | Partial | **Best-in-class** | No |
+| Auto-optimization | Yes | No | No | **Best-in-class** |
+| Multi-provider | Yes | Yes | Yes | Partial |
+| Caching | Yes | Yes | No | Yes |
+| Cost tracking | Yes | Partial | No | No |
+| Streaming | Yes | Yes | Partial | No |
+| Import time | <100ms | ~2s | <100ms | ~6s |
 
 ---
 
 ## Documentation
 
-- **[Quick Start Guide](docs/quickstart.md)** - Get started in 5 minutes
-- **[API Reference](docs/api.md)** - Complete API documentation
-- **[Optimization Guide](docs/optimization.md)** - Improve prompts automatically
-- **[A/B Testing Guide](docs/ab-testing.md)** - Run experiments
-- **[Multimodal Guide](docs/multimodal.md)** - Work with images and documents
+- **[Quick Start Guide](docs/quickstart.md)** -- Get started in 5 minutes
+- **[A/B Testing Guide](docs/ab-testing.md)** -- Run experiments
+- **[API Reference](docs/api.md)** -- Complete API documentation
+- **[Optimization Guide](docs/optimization.md)** -- Improve prompts automatically
+- **[Examples](examples/)** -- Runnable example scripts
 
 ---
 
@@ -366,7 +231,7 @@ uv run pytest
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License -- see [LICENSE](LICENSE) for details.
 
 ---
 
