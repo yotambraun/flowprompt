@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 from flowprompt.testing.experiment import VariantStats
 from flowprompt.testing.statistics import StatisticalResult, run_significance_test
@@ -296,10 +297,7 @@ def _build_result(
         statistical_result = best_result
 
         if statistical_result and statistical_result.significant:
-            if statistical_result.effect_size > 0:
-                winner = best_name
-            else:
-                winner = control_name
+            winner = best_name if statistical_result.effect_size > 0 else control_name
 
     return ComparisonResult(
         winner=winner,
@@ -374,8 +372,14 @@ def compare(
 
     for name, prompt_class in prompts.items():
         vr, vs = _run_variant(
-            name, prompt_class, inputs, model, temperature,
-            runs_per_input, success_fn, metric_fn,
+            name,
+            prompt_class,
+            inputs,
+            model,
+            temperature,
+            runs_per_input,
+            success_fn,
+            metric_fn,
         )
         variant_results[name] = vr
         variant_stats[name] = vs
@@ -414,8 +418,14 @@ async def acompare(
 
     tasks = [
         _arun_variant(
-            name, prompt_class, inputs, model, temperature,
-            runs_per_input, success_fn, metric_fn,
+            name,
+            prompt_class,
+            inputs,
+            model,
+            temperature,
+            runs_per_input,
+            success_fn,
+            metric_fn,
         )
         for name, prompt_class in prompts.items()
     ]

@@ -17,7 +17,6 @@ import os
 
 from flowprompt import Prompt, compare
 
-
 # =============================================================================
 # Step 1: Define prompt variants to compare
 # =============================================================================
@@ -143,7 +142,9 @@ def run_comparison() -> None:
     if result.winner:
         print(f"\nRecommendation: Use '{result.winner}' in production.")
     else:
-        print("\nNo statistically significant winner. Try more inputs or runs_per_input.")
+        print(
+            "\nNo statistically significant winner. Try more inputs or runs_per_input."
+        )
 
 
 # =============================================================================

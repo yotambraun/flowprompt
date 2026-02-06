@@ -124,9 +124,7 @@ class LiteLLMProvider(BaseProvider):
         # Add JSON response format if Output model is defined
         response_format = None
         if output_model is not None:
-            response_format = self._build_response_format(
-                model, output_model, messages
-            )
+            response_format = self._build_response_format(model, output_model, messages)
 
         # Execute completion with retries
         last_error: Exception | None = None
@@ -204,9 +202,7 @@ class LiteLLMProvider(BaseProvider):
         # Add JSON response format if Output model is defined
         response_format = None
         if output_model is not None:
-            response_format = self._build_response_format(
-                model, output_model, messages
-            )
+            response_format = self._build_response_format(model, output_model, messages)
 
         # Execute async completion with retries
         last_error: Exception | None = None

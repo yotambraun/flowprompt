@@ -261,9 +261,7 @@ class TestNativeJsonSchema:
 
         with (
             patch("litellm.supports_response_schema", return_value=True),
-            patch(
-                "litellm.acompletion", new_callable=AsyncMock
-            ) as mock_acompletion,
+            patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion,
         ):
             mock_acompletion.return_value = MockResponse(json_response)
             result = await provider.acomplete(prompt, model="gpt-4o")

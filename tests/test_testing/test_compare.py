@@ -3,18 +3,16 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from flowprompt import Prompt
 from flowprompt.testing.compare import (
     ComparisonResult,
-    VariantResult,
     acompare,
     compare,
 )
-
 
 # ---------------------------------------------------------------------------
 # Test prompt classes
@@ -34,16 +32,6 @@ class PromptB(Prompt[Any]):
 class PromptC(Prompt[Any]):
     system: str = "You are detailed."
     user: str = "Explain: {text}"
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _mock_run(return_value: str = "output"):
-    """Create a mock for Prompt.run that returns a string."""
-    return MagicMock(return_value=return_value)
 
 
 # ---------------------------------------------------------------------------
@@ -101,7 +89,7 @@ class TestCompare:
         """When one variant has clearly better success, it should be the winner."""
         call_count = {"a": 0, "b": 0}
 
-        def mock_run(self, model="gpt-4o", **kwargs):
+        def mock_run(self, model="gpt-4o", **_kwargs):  # noqa: ARG001
             # Determine which prompt class this is by checking the user field
             name = "a" if "Process" in self.user else "b"
             call_count[name] += 1

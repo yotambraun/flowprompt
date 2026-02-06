@@ -37,8 +37,6 @@ Example:
     >>> print(summary.summary_text())
 """
 
-# Experiment configuration
-# Traffic allocation
 from flowprompt.testing.allocation import (
     EpsilonGreedyAllocator,
     RandomAllocator,
@@ -49,6 +47,12 @@ from flowprompt.testing.allocation import (
     WeightedAllocator,
     get_allocator,
 )
+from flowprompt.testing.compare import (
+    ComparisonResult,
+    VariantResult,
+    acompare,
+    compare,
+)
 from flowprompt.testing.experiment import (
     AllocationStrategy,
     ExperimentConfig,
@@ -58,23 +62,11 @@ from flowprompt.testing.experiment import (
     VariantConfig,
     VariantStats,
 )
-
-# Comparison (convenience API)
-from flowprompt.testing.compare import (
-    ComparisonResult,
-    VariantResult,
-    acompare,
-    compare,
-)
-
-# Runner
 from flowprompt.testing.runner import (
     ABTestRunner,
     ExperimentSummary,
     create_simple_experiment,
 )
-
-# Statistical analysis
 from flowprompt.testing.statistics import (
     StatisticalResult,
     bayesian_ab_test,
