@@ -34,6 +34,52 @@ class LiteLLMProvider(BaseProvider):
         ... )
     """
 
+    @staticmethod
+    def _build_response_format(
+        model: str,
+        output_model: type[BaseModel],
+        messages: list[dict[str, str]],
+    ) -> dict[str, Any] | None:
+        """Build the response_format parameter for structured output.
+
+        Uses native JSON schema mode when the model supports it,
+        otherwise falls back to json_object mode with schema in the
+        system message.
+
+        Args:
+            model: The model identifier.
+            output_model: The Pydantic model class for the expected output.
+            messages: The messages list (may be mutated for fallback path).
+
+        Returns:
+            The response_format dict to pass to litellm, or None.
+        """
+        import litellm
+
+        schema = output_model.model_json_schema()
+
+        # Try native JSON schema mode
+        try:
+            if litellm.supports_response_schema(model=model):
+                schema_name = output_model.__name__
+                return {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": schema_name,
+                        "schema": schema,
+                        "strict": True,
+                    },
+                }
+        except Exception:
+            pass
+
+        # Fallback: json_object mode with schema appended to system message
+        schema_str = json.dumps(schema, indent=2)
+        messages[0]["content"] += (
+            f"\n\nRespond with valid JSON matching this schema:\n{schema_str}"
+        )
+        return {"type": "json_object"}
+
     def complete(
         self,
         prompt: Prompt[OutputT],
@@ -78,12 +124,8 @@ class LiteLLMProvider(BaseProvider):
         # Add JSON response format if Output model is defined
         response_format = None
         if output_model is not None:
-            response_format = {"type": "json_object"}
-            # Add schema hint to system message
-            schema = output_model.model_json_schema()
-            schema_str = json.dumps(schema, indent=2)
-            messages[0]["content"] += (
-                f"\n\nRespond with valid JSON matching this schema:\n{schema_str}"
+            response_format = self._build_response_format(
+                model, output_model, messages
             )
 
         # Execute completion with retries
@@ -162,11 +204,8 @@ class LiteLLMProvider(BaseProvider):
         # Add JSON response format if Output model is defined
         response_format = None
         if output_model is not None:
-            response_format = {"type": "json_object"}
-            schema = output_model.model_json_schema()
-            schema_str = json.dumps(schema, indent=2)
-            messages[0]["content"] += (
-                f"\n\nRespond with valid JSON matching this schema:\n{schema_str}"
+            response_format = self._build_response_format(
+                model, output_model, messages
             )
 
         # Execute async completion with retries
