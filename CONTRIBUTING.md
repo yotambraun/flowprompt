@@ -136,12 +136,15 @@ flowprompt/
 ├── src/flowprompt/       # Main package source
 │   ├── core/             # Core Prompt, Field, Cache, Streaming
 │   ├── providers/        # LLM provider implementations
+│   ├── testing/          # A/B testing, compare(), experiments
+│   ├── optimize/         # DSPy-style prompt optimization
+│   ├── multimodal/       # Image, audio, document support
 │   ├── tracing/          # OpenTelemetry integration
 │   ├── storage/          # YAML/JSON prompt loading
 │   └── cli/              # Command-line interface
 ├── tests/                # Test suite
 ├── examples/             # Usage examples
-└── docs/                 # Documentation (future)
+└── docs/                 # Documentation
 ```
 
 ## Adding New Features

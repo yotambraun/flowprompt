@@ -11,6 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Redis cache backend
 - Langfuse integration
 
+## [0.3.0] - 2026-02-06
+
+### Added
+- **`compare()` convenience function**: One-call prompt A/B testing with statistical significance
+  - `compare(prompts, inputs, model)` -- compare prompt variants in a single call
+  - `acompare()` async variant with parallel execution via `asyncio.gather`
+  - `ComparisonResult` and `VariantResult` dataclasses with `__str__()` and `to_dict()`
+  - Top-level exports: `from flowprompt import compare, acompare, ComparisonResult`
+- **Prompt Lab example** (`examples/10_prompt_lab.py`): End-to-end sentiment analysis comparison demo
+
+### Fixed
+- **Native JSON schema for structured outputs**: Use `litellm.supports_response_schema()` to detect models with native `json_schema` response format instead of always appending schema text to the system message. Falls back gracefully for older models.
+- **Dynamic model pricing**: `UsageInfo.calculate_cost()` now looks up `litellm.model_cost` for current per-token pricing instead of using a hardcoded 9-model table. Built-in fallback prices remain for when litellm is unavailable.
+
+### Changed
+- README rewritten to lead with `compare()` as the hero feature, honest comparison table
+- Quickstart docs updated with "Compare Prompts" section as second thing users learn
+- `MODEL_PRICING` renamed to `_FALLBACK_PRICING` (private, backward-compatible)
+
 ## [0.2.1] - 2026-01-16
 
 ### Added
@@ -128,7 +147,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite
 - Full type annotations
 
-[unreleased]: https://github.com/yotambraun/flowprompt/compare/v0.2.1...HEAD
+[unreleased]: https://github.com/yotambraun/flowprompt/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/yotambraun/flowprompt/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/yotambraun/flowprompt/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/yotambraun/flowprompt/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/yotambraun/flowprompt/releases/tag/v0.1.0

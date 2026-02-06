@@ -6,16 +6,59 @@ FlowPrompt's A/B testing module provides a complete framework for running contro
 
 ## Table of Contents
 
-- [Quick Start](#quick-start)
+- [Quick Compare](#quick-compare)
+- [Full Experiment Control](#full-experiment-control)
 - [Experiment Configuration](#experiment-configuration)
 - [Traffic Allocation](#traffic-allocation)
 - [Running Experiments](#running-experiments)
 - [Statistical Analysis](#statistical-analysis)
 - [Best Practices](#best-practices)
 
-## Quick Start
+## Quick Compare
 
-Here's a simple A/B test comparing two prompts:
+The fastest way to compare prompts -- no setup needed:
+
+```python
+from flowprompt import Prompt, compare
+
+class PromptV1(Prompt):
+    system = "You are a helpful assistant."
+    user = "Process: {text}"
+
+class PromptV2(Prompt):
+    system = "You are a helpful assistant. Be concise and clear."
+    user = "Please process the following text: {text}"
+
+result = compare(
+    {"v1": PromptV1, "v2": PromptV2},
+    inputs=[{"text": "Hello world"}, {"text": "Test input"}],
+    model="gpt-4o-mini",
+    success_fn=lambda out: len(out) > 10,
+)
+print(result)  # Shows winner, success rates, p-value
+```
+
+For async execution with parallel variant runs:
+
+```python
+from flowprompt import acompare
+
+result = await acompare(
+    {"v1": PromptV1, "v2": PromptV2},
+    inputs=test_data,
+    model="gpt-4o-mini",
+)
+```
+
+`compare()` returns a `ComparisonResult` with:
+- `winner` -- name of the winning variant (or `None` if not significant)
+- `variants` -- per-variant `VariantResult` with success rate, latency, errors
+- `statistical_result` -- full `StatisticalResult` with p-value and effect size
+- `to_dict()` -- serialize to dict for logging/storage
+
+## Full Experiment Control
+
+For production traffic splitting, sticky user assignment, or multi-armed bandits, use the full experiment API:
 
 ```python
 from flowprompt import Prompt

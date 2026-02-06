@@ -2,6 +2,26 @@
 
 This document tracks remaining features and improvements planned for FlowPrompt.
 
+## Completed in v0.3.0
+
+### compare() Convenience API
+- [x] One-call `compare()` function for prompt A/B testing
+- [x] Async `acompare()` variant with parallel execution
+- [x] `ComparisonResult` and `VariantResult` dataclasses
+- [x] Top-level exports from `flowprompt`
+- [x] Prompt Lab example (`examples/10_prompt_lab.py`)
+
+### Structured Output Improvements
+- [x] Native JSON schema mode via `litellm.supports_response_schema()`
+- [x] Graceful fallback for models without native schema support
+
+### Pricing
+- [x] Dynamic pricing via `litellm.model_cost` instead of hardcoded table
+
+### Documentation
+- [x] README rewritten to lead with `compare()`
+- [x] Quickstart updated with Compare Prompts section
+
 ## Completed in v0.2.0
 
 ### Automatic Optimization (DSPy-style)

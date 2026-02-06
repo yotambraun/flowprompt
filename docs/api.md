@@ -408,6 +408,81 @@ result = optimizer.optimize(MyPrompt, dataset, metric)
 
 ## A/B Testing
 
+### compare()
+
+One-call prompt comparison with statistical significance testing.
+
+```python
+from flowprompt import compare
+
+result = compare(
+    {"v1": PromptV1, "v2": PromptV2},
+    inputs=[{"text": "sample"}],
+    model="gpt-4o-mini",
+    success_fn=lambda out: len(out) > 10,
+    confidence_level=0.95,
+    runs_per_input=3,
+    temperature=0.0,
+    test_type="z_test",
+)
+```
+
+**Parameters:**
+- `prompts` (dict[str, type]): Dict mapping variant names to Prompt subclasses (min 2)
+- `inputs` (list[dict]): Test inputs to run each variant against (min 1)
+- `model` (str): Model to use
+- `success_fn` (callable, optional): Function to determine success
+- `metric_fn` (callable, optional): Function to compute numeric metric
+- `confidence_level` (float): Confidence level for significance (default 0.95)
+- `runs_per_input` (int): Runs per input per variant (default 1)
+- `temperature` (float): LLM temperature (default 0.0)
+- `test_type` (str): Statistical test ("z_test", "chi_squared", "t_test", "bayesian")
+
+**Returns:** `ComparisonResult`
+
+### acompare()
+
+Async variant of `compare()` that runs variants in parallel via `asyncio.gather`.
+
+```python
+from flowprompt import acompare
+
+result = await acompare(
+    {"v1": PromptV1, "v2": PromptV2},
+    inputs=[{"text": "sample"}],
+    model="gpt-4o-mini",
+)
+```
+
+### ComparisonResult
+
+Result of comparing prompt variants.
+
+**Attributes:**
+- `winner` (str | None): Name of the winning variant, or None
+- `variants` (dict[str, VariantResult]): Per-variant results
+- `statistical_result` (StatisticalResult | None): Significance test result
+- `confidence_level` (float): Confidence level used
+- `total_runs` (int): Total runs across all variants
+
+**Methods:**
+- `__str__()`: Pretty-printed summary
+- `to_dict()`: Serialize to dictionary
+
+### VariantResult
+
+Results for a single prompt variant.
+
+**Attributes:**
+- `name` (str): Variant name
+- `samples` (int): Number of runs
+- `successes` (int): Number of successful runs
+- `success_rate` (float): Success fraction (0.0-1.0)
+- `mean_latency_ms` (float): Average latency
+- `total_cost_usd` (float): Total cost
+- `outputs` (list): Outputs from each run
+- `errors` (list[str]): Errors encountered
+
 ### ABTestRunner
 
 Main class for running A/B test experiments.
