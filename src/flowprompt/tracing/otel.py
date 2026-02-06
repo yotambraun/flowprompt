@@ -19,8 +19,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     pass
 
-# Model pricing per 1M tokens (as of 2024)
-MODEL_PRICING: dict[str, dict[str, float]] = {
+# Fallback pricing per 1M tokens, used only when litellm.model_cost is unavailable
+_FALLBACK_PRICING: dict[str, dict[str, float]] = {
     "gpt-4o": {"input": 2.50, "output": 10.00},
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
     "gpt-4-turbo": {"input": 10.00, "output": 30.00},
@@ -54,13 +54,32 @@ class UsageInfo:
     cached: bool = False
 
     def calculate_cost(self, model: str) -> float:
-        """Calculate cost based on model pricing."""
-        # Normalize model name
+        """Calculate cost based on model pricing.
+
+        Tries litellm.model_cost for up-to-date per-token pricing first,
+        then falls back to the built-in _FALLBACK_PRICING table.
+        """
+        # Try litellm's maintained pricing database first
+        try:
+            import litellm
+
+            cost_info = litellm.model_cost.get(model)
+            if cost_info is not None:
+                input_cost = self.prompt_tokens * cost_info.get(
+                    "input_cost_per_token", 0.0
+                )
+                output_cost = self.completion_tokens * cost_info.get(
+                    "output_cost_per_token", 0.0
+                )
+                return input_cost + output_cost
+        except Exception:
+            pass
+
+        # Fallback to built-in pricing table
         model_key = model.split("/")[-1].lower()
 
-        # Find matching pricing
         pricing = None
-        for key, prices in MODEL_PRICING.items():
+        for key, prices in _FALLBACK_PRICING.items():
             if key in model_key or model_key in key:
                 pricing = prices
                 break
