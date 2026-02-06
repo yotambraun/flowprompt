@@ -15,7 +15,7 @@ Requirements:
 
 import os
 
-from flowprompt import Prompt, compare
+from flowprompt import Prompt, compare, estimate_compare_cost
 
 # =============================================================================
 # Step 1: Define prompt variants to compare
@@ -114,15 +114,26 @@ def preview_prompts() -> None:
 
 def run_comparison() -> None:
     """Run all three variants and print results."""
-    print("\nRunning Comparison")
+    prompts = {
+        "basic": SentimentBasic,
+        "detailed": SentimentDetailed,
+        "few_shot": SentimentFewShot,
+    }
+
+    # Preview cost before running
+    cost = estimate_compare_cost(prompts, TEST_INPUTS, model="gpt-4o-mini")
+    if cost["estimated_cost_usd"] is not None:
+        print(f"\nEstimated cost: ${cost['estimated_cost_usd']:.4f}")
+    else:
+        print("\nEstimated cost: unknown")
+    print(f"Total API calls: {cost['total_calls']}")
+    print()
+
+    print("Running Comparison")
     print("=" * 50)
 
     result = compare(
-        {
-            "basic": SentimentBasic,
-            "detailed": SentimentDetailed,
-            "few_shot": SentimentFewShot,
-        },
+        prompts,
         inputs=TEST_INPUTS,
         model="gpt-4o-mini",
         success_fn=is_valid_sentiment,

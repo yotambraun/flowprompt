@@ -56,6 +56,44 @@ result = await acompare(
 - `statistical_result` -- full `StatisticalResult` with p-value and effect size
 - `to_dict()` -- serialize to dict for logging/storage
 
+## Cost Estimation
+
+Before running a comparison that could make hundreds of API calls, preview the estimated cost:
+
+```python
+from flowprompt import estimate_compare_cost
+
+cost = estimate_compare_cost(
+    {"v1": PromptV1, "v2": PromptV2},
+    inputs=test_data,
+    model="gpt-4o-mini",
+    runs_per_input=3,
+)
+print(f"Estimated cost: ${cost['estimated_cost_usd']:.4f}")
+print(f"Total API calls: {cost['total_calls']}")
+print(f"Input tokens: {cost['estimated_input_tokens']}")
+```
+
+Or use `dry_run=True` directly in `compare()`:
+
+```python
+result = compare(
+    {"v1": PromptV1, "v2": PromptV2},
+    inputs=test_data,
+    model="gpt-4o-mini",
+    dry_run=True,
+)
+print(result)
+# Comparison Results (DRY RUN)
+# ========================================
+#   Estimated cost: $0.03 for 200 calls
+#   Per variant:
+#     v1: 100 calls, ~5000 tokens, ~$0.01
+#     v2: 100 calls, ~5200 tokens, ~$0.02
+```
+
+This lets you verify the cost before committing to API calls -- especially useful when combining many inputs, variants, and `runs_per_input`.
+
 ## Full Experiment Control
 
 For production traffic splitting, sticky user assignment, or multi-armed bandits, use the full experiment API:

@@ -54,6 +54,18 @@ print(result)
 # Shows winner, success rates, latency, and statistical significance
 ```
 
+Use `dry_run=True` to preview estimated cost before spending API credits:
+
+```python
+result = compare(
+    {"v1": PromptV1, "v2": PromptV2},
+    inputs=test_data,
+    model="gpt-4o-mini",
+    dry_run=True,  # No API calls -- just estimates cost
+)
+print(result)  # Shows estimated cost and number of API calls
+```
+
 For async execution with parallel variant runs:
 
 ```python
