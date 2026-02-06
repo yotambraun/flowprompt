@@ -26,6 +26,46 @@ print(f"Name: {result.name}")  # Name: John Smith
 print(f"Age: {result.age}")    # Age: 25
 ```
 
+## Compare Prompts
+
+The fastest way to find which prompt works better -- with statistical significance:
+
+```python
+from flowprompt import Prompt, compare
+
+class PromptV1(Prompt):
+    system = "You are a precise data extractor."
+    user = "Extract the name and age from: {text}"
+
+class PromptV2(Prompt):
+    system = "Extract structured data. Be accurate and concise."
+    user = "From the following text, extract name and age: {text}"
+
+result = compare(
+    {"v1": PromptV1, "v2": PromptV2},
+    inputs=[
+        {"text": "John Smith is 25 years old"},
+        {"text": "Alice (age 30) joined today"},
+        {"text": "Bob, 42, from NYC"},
+    ],
+    model="gpt-4o-mini",
+)
+print(result)
+# Shows winner, success rates, latency, and statistical significance
+```
+
+For async execution with parallel variant runs:
+
+```python
+from flowprompt import acompare
+
+result = await acompare(
+    {"v1": PromptV1, "v2": PromptV2},
+    inputs=test_data,
+    model="gpt-4o-mini",
+)
+```
+
 ## Streaming Responses
 
 For real-time output, use streaming:
