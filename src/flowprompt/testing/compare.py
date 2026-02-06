@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import asyncio
 import time
+import warnings
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -59,6 +61,7 @@ class ComparisonResult:
         statistical_result: Result of the significance test.
         confidence_level: Confidence level used for the test.
         total_runs: Total number of runs across all variants.
+        estimated_cost: Cost estimation dict, populated in dry_run or normal mode.
     """
 
     winner: str | None
@@ -66,9 +69,36 @@ class ComparisonResult:
     statistical_result: StatisticalResult | None
     confidence_level: float
     total_runs: int
+    estimated_cost: dict[str, Any] | None = None
 
     def __str__(self) -> str:
         """Pretty-print the comparison result."""
+        # Dry run mode
+        if self.total_runs == 0 and self.estimated_cost is not None:
+            lines = ["Comparison Results (DRY RUN)", "=" * 40]
+            est = self.estimated_cost
+            cost_str = (
+                f"${est['estimated_cost_usd']:.2f}"
+                if est.get("estimated_cost_usd") is not None
+                else "unknown"
+            )
+            lines.append(f"  Estimated cost: {cost_str} for {est['total_calls']} calls")
+            per_variant = est.get("per_variant", {})
+            if per_variant:
+                lines.append("  Per variant:")
+                for vname, vinfo in per_variant.items():
+                    vcost = (
+                        f"~${vinfo['cost_usd']:.2f}"
+                        if vinfo.get("cost_usd") is not None
+                        else "unknown"
+                    )
+                    lines.append(
+                        f"    {vname}: {vinfo['calls']} calls, "
+                        f"~{vinfo['input_tokens']} tokens, {vcost}"
+                    )
+            return "\n".join(lines)
+
+        # Normal mode
         lines = ["Comparison Results", "=" * 40]
 
         for name, v in self.variants.items():
@@ -92,6 +122,16 @@ class ComparisonResult:
             lines.append("")
             lines.append("  No clear winner (results not statistically significant)")
 
+        if (
+            self.estimated_cost
+            and self.estimated_cost.get("estimated_cost_usd") is not None
+        ):
+            cost = self.estimated_cost["estimated_cost_usd"]
+            num_variants = len(self.variants)
+            avg = cost / num_variants if num_variants > 0 else 0
+            lines.append("")
+            lines.append(f"  Cost: ${cost:.2f} total (${avg:.2f}/variant avg)")
+
         return "\n".join(lines)
 
     def to_dict(self) -> dict[str, Any]:
@@ -100,6 +140,7 @@ class ComparisonResult:
             "winner": self.winner,
             "confidence_level": self.confidence_level,
             "total_runs": self.total_runs,
+            "estimated_cost": self.estimated_cost,
             "variants": {
                 name: {
                     "samples": v.samples,
@@ -120,6 +161,108 @@ class ComparisonResult:
             if self.statistical_result
             else None,
         }
+
+
+def estimate_compare_cost(
+    prompts: dict[str, type],
+    inputs: list[dict[str, Any]],
+    model: str = "gpt-4o",
+    *,
+    runs_per_input: int = 1,
+    estimated_output_tokens: int = 100,
+) -> dict[str, Any]:
+    """Estimate the cost of running compare() without making API calls.
+
+    Instantiates each prompt variant with each input, counts input tokens
+    using litellm, and looks up pricing to produce a cost estimate.
+
+    Args:
+        prompts: Dict mapping variant names to Prompt subclasses.
+        inputs: List of input dicts to test each variant against.
+        model: Model to use for token counting and pricing lookup.
+        runs_per_input: Number of times to run each input per variant.
+        estimated_output_tokens: Estimated output tokens per call.
+
+    Returns:
+        Dict with keys: model, total_calls, estimated_input_tokens,
+        estimated_output_tokens, estimated_cost_usd, per_variant.
+        Cost fields may be None if litellm pricing is unavailable.
+    """
+    total_calls = len(prompts) * len(inputs) * runs_per_input
+    per_variant: dict[str, dict[str, Any]] = {}
+    total_input_tokens = 0
+
+    # Try to get pricing info
+    input_cost_per_token: float | None = None
+    output_cost_per_token: float | None = None
+    try:
+        import litellm
+
+        cost_info = litellm.model_cost.get(model)
+        if cost_info:
+            input_cost_per_token = cost_info.get("input_cost_per_token")
+            output_cost_per_token = cost_info.get("output_cost_per_token")
+    except Exception:
+        pass
+
+    for name, prompt_class in prompts.items():
+        variant_input_tokens = 0
+        variant_calls = len(inputs) * runs_per_input
+
+        for inp in inputs:
+            try:
+                prompt = prompt_class(**inp)
+                messages = prompt.to_messages()
+                try:
+                    import litellm
+
+                    tokens = litellm.token_counter(model=model, messages=messages)
+                except Exception:
+                    # Rough fallback: ~4 chars per token
+                    text = " ".join(
+                        m.get("content", "") for m in messages if isinstance(m, dict)
+                    )
+                    tokens = len(text) // 4
+                variant_input_tokens += tokens * runs_per_input
+            except Exception:
+                pass
+
+        total_input_tokens += variant_input_tokens
+
+        variant_cost: float | None = None
+        if input_cost_per_token is not None and output_cost_per_token is not None:
+            variant_cost = (
+                variant_input_tokens * input_cost_per_token
+                + variant_calls * estimated_output_tokens * output_cost_per_token
+            )
+
+        per_variant[name] = {
+            "calls": variant_calls,
+            "input_tokens": variant_input_tokens,
+            "cost_usd": variant_cost,
+        }
+
+    total_estimated_output_tokens = total_calls * estimated_output_tokens
+    total_cost: float | None = None
+    if input_cost_per_token is not None and output_cost_per_token is not None:
+        total_cost = (
+            total_input_tokens * input_cost_per_token
+            + total_estimated_output_tokens * output_cost_per_token
+        )
+    else:
+        warnings.warn(
+            f"Could not look up pricing for model '{model}'. Cost fields will be None.",
+            stacklevel=2,
+        )
+
+    return {
+        "model": model,
+        "total_calls": total_calls,
+        "estimated_input_tokens": total_input_tokens,
+        "estimated_output_tokens": total_estimated_output_tokens,
+        "estimated_cost_usd": total_cost,
+        "per_variant": per_variant,
+    }
 
 
 def _run_variant(
@@ -261,6 +404,7 @@ def _build_result(
     variant_stats: dict[str, VariantStats],
     confidence_level: float,
     test_type: str,
+    estimated_cost: dict[str, Any] | None = None,
 ) -> ComparisonResult:
     """Build a ComparisonResult from collected variant data."""
     total_runs = sum(vr.samples for vr in variant_results.values())
@@ -305,6 +449,7 @@ def _build_result(
         statistical_result=statistical_result,
         confidence_level=confidence_level,
         total_runs=total_runs,
+        estimated_cost=estimated_cost,
     )
 
 
@@ -319,6 +464,7 @@ def compare(
     runs_per_input: int = 1,
     temperature: float = 0.0,
     test_type: str = "z_test",
+    dry_run: bool = False,
 ) -> ComparisonResult:
     """Compare prompt variants with statistical significance testing.
 
@@ -337,9 +483,11 @@ def compare(
         runs_per_input: Number of times to run each input per variant (default 1).
         temperature: Temperature for LLM calls (default 0.0).
         test_type: Statistical test type ("z_test", "chi_squared", "t_test", "bayesian").
+        dry_run: If True, estimate cost without making API calls.
 
     Returns:
         ComparisonResult with winner, per-variant stats, and significance test.
+        In dry_run mode, returns result with winner=None and cost estimate.
 
     Raises:
         ValueError: If fewer than 2 prompts or 0 inputs are provided.
@@ -367,24 +515,55 @@ def compare(
     if len(inputs) < 1:
         raise ValueError("compare() requires at least 1 input")
 
+    cost_estimate = estimate_compare_cost(
+        prompts, inputs, model, runs_per_input=runs_per_input
+    )
+
+    if dry_run:
+        cost_str = (
+            f"${cost_estimate['estimated_cost_usd']:.2f}"
+            if cost_estimate.get("estimated_cost_usd") is not None
+            else "unknown"
+        )
+        print(
+            f"Estimated cost: {cost_str} for {cost_estimate['total_calls']} API calls "
+            f"({cost_estimate['estimated_input_tokens']} input tokens)"
+        )
+        return ComparisonResult(
+            winner=None,
+            variants={},
+            statistical_result=None,
+            confidence_level=confidence_level,
+            total_runs=0,
+            estimated_cost=cost_estimate,
+        )
+
     variant_results: dict[str, VariantResult] = {}
     variant_stats: dict[str, VariantStats] = {}
 
-    for name, prompt_class in prompts.items():
-        vr, vs = _run_variant(
-            name,
-            prompt_class,
-            inputs,
-            model,
-            temperature,
-            runs_per_input,
-            success_fn,
-            metric_fn,
-        )
-        variant_results[name] = vr
-        variant_stats[name] = vs
+    with ThreadPoolExecutor(max_workers=len(prompts)) as executor:
+        futures = {
+            name: executor.submit(
+                _run_variant,
+                name,
+                prompt_class,
+                inputs,
+                model,
+                temperature,
+                runs_per_input,
+                success_fn,
+                metric_fn,
+            )
+            for name, prompt_class in prompts.items()
+        }
+        for name, future in futures.items():
+            vr, vs = future.result()
+            variant_results[name] = vr
+            variant_stats[name] = vs
 
-    return _build_result(variant_results, variant_stats, confidence_level, test_type)
+    return _build_result(
+        variant_results, variant_stats, confidence_level, test_type, cost_estimate
+    )
 
 
 async def acompare(
@@ -398,11 +577,15 @@ async def acompare(
     runs_per_input: int = 1,
     temperature: float = 0.0,
     test_type: str = "z_test",
+    dry_run: bool = False,
 ) -> ComparisonResult:
     """Async version of compare() that runs variants in parallel.
 
     Same arguments and return type as compare(). Uses asyncio.gather
     to run all variants concurrently.
+
+    Args:
+        dry_run: If True, estimate cost without making API calls.
 
     Example:
         >>> result = await acompare(
@@ -415,6 +598,29 @@ async def acompare(
         raise ValueError("acompare() requires at least 2 prompt variants")
     if len(inputs) < 1:
         raise ValueError("acompare() requires at least 1 input")
+
+    cost_estimate = estimate_compare_cost(
+        prompts, inputs, model, runs_per_input=runs_per_input
+    )
+
+    if dry_run:
+        cost_str = (
+            f"${cost_estimate['estimated_cost_usd']:.2f}"
+            if cost_estimate.get("estimated_cost_usd") is not None
+            else "unknown"
+        )
+        print(
+            f"Estimated cost: {cost_str} for {cost_estimate['total_calls']} API calls "
+            f"({cost_estimate['estimated_input_tokens']} input tokens)"
+        )
+        return ComparisonResult(
+            winner=None,
+            variants={},
+            statistical_result=None,
+            confidence_level=confidence_level,
+            total_runs=0,
+            estimated_cost=cost_estimate,
+        )
 
     tasks = [
         _arun_variant(
@@ -438,4 +644,6 @@ async def acompare(
         variant_results[vr.name] = vr
         variant_stats[vs.name] = vs
 
-    return _build_result(variant_results, variant_stats, confidence_level, test_type)
+    return _build_result(
+        variant_results, variant_stats, confidence_level, test_type, cost_estimate
+    )

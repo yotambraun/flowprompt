@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -12,6 +13,7 @@ from flowprompt.testing.compare import (
     ComparisonResult,
     acompare,
     compare,
+    estimate_compare_cost,
 )
 
 # ---------------------------------------------------------------------------
@@ -267,3 +269,184 @@ class TestAcompare:
         assert result.total_runs == 2
         assert result.variants["a"].samples == 1
         assert result.variants["b"].samples == 1
+
+
+# ---------------------------------------------------------------------------
+# Dry run and cost estimation
+# ---------------------------------------------------------------------------
+
+
+class TestDryRun:
+    """Test dry_run mode for compare() and acompare()."""
+
+    def test_dry_run_returns_no_winner(self) -> None:
+        """dry_run=True returns ComparisonResult with winner=None, total_runs=0."""
+        result = compare(
+            {"a": PromptA, "b": PromptB},
+            inputs=[{"text": "hello"}],
+            model="gpt-4o-mini",
+            dry_run=True,
+        )
+
+        assert isinstance(result, ComparisonResult)
+        assert result.winner is None
+        assert result.total_runs == 0
+        assert result.variants == {}
+        assert result.statistical_result is None
+
+    def test_dry_run_does_not_call_run(self) -> None:
+        """Verify Prompt.run is NOT called when dry_run=True."""
+        with patch.object(Prompt, "run", side_effect=AssertionError("should not call")):
+            result = compare(
+                {"a": PromptA, "b": PromptB},
+                inputs=[{"text": "hello"}],
+                model="gpt-4o-mini",
+                dry_run=True,
+            )
+
+        assert result.total_runs == 0
+
+    def test_dry_run_shows_estimated_cost(self) -> None:
+        """estimated_cost dict has expected keys."""
+        result = compare(
+            {"a": PromptA, "b": PromptB},
+            inputs=[{"text": "hello"}],
+            model="gpt-4o-mini",
+            dry_run=True,
+        )
+
+        assert result.estimated_cost is not None
+        assert "model" in result.estimated_cost
+        assert "total_calls" in result.estimated_cost
+        assert "estimated_input_tokens" in result.estimated_cost
+        assert "estimated_output_tokens" in result.estimated_cost
+        assert "estimated_cost_usd" in result.estimated_cost
+        assert "per_variant" in result.estimated_cost
+        assert result.estimated_cost["total_calls"] == 2  # 2 variants * 1 input * 1 run
+
+    def test_dry_run_str_output(self) -> None:
+        """dry_run result __str__ should contain DRY RUN."""
+        result = compare(
+            {"a": PromptA, "b": PromptB},
+            inputs=[{"text": "hello"}],
+            model="gpt-4o-mini",
+            dry_run=True,
+        )
+
+        text = str(result)
+        assert "DRY RUN" in text
+        assert "Estimated cost" in text
+
+    @pytest.mark.asyncio
+    async def test_acompare_dry_run(self) -> None:
+        """Async dry_run variant should also work."""
+        with patch.object(
+            Prompt,
+            "arun",
+            new_callable=AsyncMock,
+            side_effect=AssertionError("should not call"),
+        ):
+            result = await acompare(
+                {"a": PromptA, "b": PromptB},
+                inputs=[{"text": "hello"}],
+                model="gpt-4o-mini",
+                dry_run=True,
+            )
+
+        assert result.winner is None
+        assert result.total_runs == 0
+        assert result.estimated_cost is not None
+        assert result.estimated_cost["total_calls"] == 2
+
+
+# ---------------------------------------------------------------------------
+# Cost estimation standalone
+# ---------------------------------------------------------------------------
+
+
+class TestEstimateCompareCost:
+    """Test the estimate_compare_cost() function."""
+
+    def test_estimate_compare_cost_basic(self) -> None:
+        """Standalone function returns correct structure."""
+        result = estimate_compare_cost(
+            {"a": PromptA, "b": PromptB},
+            inputs=[{"text": "hello"}, {"text": "world"}],
+            model="gpt-4o-mini",
+        )
+
+        assert result["model"] == "gpt-4o-mini"
+        assert result["total_calls"] == 4  # 2 variants * 2 inputs
+        assert result["estimated_input_tokens"] >= 0
+        assert result["estimated_output_tokens"] == 400  # 4 calls * 100 default
+        assert "per_variant" in result
+        assert "a" in result["per_variant"]
+        assert "b" in result["per_variant"]
+        assert result["per_variant"]["a"]["calls"] == 2
+        assert result["per_variant"]["b"]["calls"] == 2
+
+    def test_estimate_compare_cost_runs_per_input(self) -> None:
+        """runs_per_input multiplies calls correctly."""
+        result = estimate_compare_cost(
+            {"a": PromptA, "b": PromptB},
+            inputs=[{"text": "hello"}],
+            model="gpt-4o-mini",
+            runs_per_input=3,
+        )
+
+        assert result["total_calls"] == 6  # 2 variants * 1 input * 3 runs
+
+    def test_estimate_compare_cost_fallback_when_no_litellm(self) -> None:
+        """Graceful fallback when litellm is not available."""
+        with patch.dict("sys.modules", {"litellm": None}):
+            result = estimate_compare_cost(
+                {"a": PromptA, "b": PromptB},
+                inputs=[{"text": "hello"}],
+                model="gpt-4o-mini",
+            )
+
+        # Should still return valid structure, cost fields may be None
+        assert result["total_calls"] == 2
+        assert "estimated_input_tokens" in result
+
+    def test_to_dict_includes_estimated_cost(self) -> None:
+        """to_dict should include estimated_cost field."""
+        result = compare(
+            {"a": PromptA, "b": PromptB},
+            inputs=[{"text": "hello"}],
+            model="gpt-4o-mini",
+            dry_run=True,
+        )
+
+        d = result.to_dict()
+        assert "estimated_cost" in d
+        assert d["estimated_cost"] is not None
+        assert d["estimated_cost"]["total_calls"] == 2
+
+
+# ---------------------------------------------------------------------------
+# Parallel execution
+# ---------------------------------------------------------------------------
+
+
+class TestParallelExecution:
+    """Test that sync compare() uses ThreadPoolExecutor."""
+
+    def test_parallel_execution(self) -> None:
+        """Verify ThreadPoolExecutor is used for sync compare()."""
+        with (
+            patch.object(Prompt, "run", return_value="ok"),
+            patch(
+                "flowprompt.testing.compare.ThreadPoolExecutor",
+                wraps=ThreadPoolExecutor,
+            ) as mock_tpe,
+        ):
+            result = compare(
+                {"a": PromptA, "b": PromptB},
+                inputs=[{"text": "hello"}],
+                model="gpt-4o-mini",
+            )
+
+        # ThreadPoolExecutor should have been called
+        mock_tpe.assert_called_once_with(max_workers=2)
+        assert result.total_runs == 2

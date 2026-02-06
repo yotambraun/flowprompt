@@ -52,6 +52,7 @@ from flowprompt.testing.compare import (
     VariantResult,
     acompare,
     compare,
+    estimate_compare_cost,
 )
 from flowprompt.testing.experiment import (
     AllocationStrategy,
@@ -104,6 +105,7 @@ __all__ = [
     # Comparison
     "compare",
     "acompare",
+    "estimate_compare_cost",
     "ComparisonResult",
     "VariantResult",
     # Runner

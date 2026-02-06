@@ -93,7 +93,12 @@ from flowprompt.storage.yaml_loader import (
 )
 
 # Testing (convenience API)
-from flowprompt.testing.compare import ComparisonResult, acompare, compare
+from flowprompt.testing.compare import (
+    ComparisonResult,
+    acompare,
+    compare,
+    estimate_compare_cost,
+)
 
 # Tracing
 from flowprompt.tracing.otel import (
@@ -131,6 +136,7 @@ __all__ = [
     # Testing (convenience API)
     "compare",
     "acompare",
+    "estimate_compare_cost",
     "ComparisonResult",
     # Storage
     "PromptConfig",
