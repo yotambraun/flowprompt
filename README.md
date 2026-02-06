@@ -196,12 +196,12 @@ result = prompt.run(model="ollama/llama3")                        # Local
 | Feature | FlowPrompt | LangChain | Instructor | DSPy |
 |---------|:----------:|:---------:|:----------:|:----:|
 | **A/B testing** | **Built-in** | No | No | No |
-| Structured outputs | Yes | Partial | **Best-in-class** | No |
+| Structured outputs | Yes | Partial | **Best-in-class** | Yes |
 | Auto-optimization | Yes | No | No | **Best-in-class** |
 | Multi-provider | Yes | Yes | Yes | Partial |
-| Caching | Yes | Yes | No | Yes |
+| Caching | Yes | Yes | Yes | Yes |
 | Cost tracking | Yes | Partial | No | No |
-| Streaming | Yes | Yes | Partial | No |
+| Streaming | Yes | Yes | Yes | Yes |
 | Import time | <100ms | ~2s | <100ms | ~6s |
 
 ---
