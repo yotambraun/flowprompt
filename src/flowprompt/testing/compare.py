@@ -275,7 +275,7 @@ def _run_variant(
     model: str,
     temperature: float,
     runs_per_input: int,
-    success_fn: Callable[[Any], bool] | None,
+    success_fn: Callable[..., bool] | None,
     metric_fn: Callable[[Any], float] | None,
     expected_outputs: list[Any] | None = None,
 ) -> tuple[VariantResult, VariantStats]:
@@ -348,7 +348,7 @@ async def _arun_variant(
     model: str,
     temperature: float,
     runs_per_input: int,
-    success_fn: Callable[[Any], bool] | None,
+    success_fn: Callable[..., bool] | None,
     metric_fn: Callable[[Any], float] | None,
     expected_outputs: list[Any] | None = None,
 ) -> tuple[VariantResult, VariantStats]:
@@ -478,7 +478,7 @@ def compare(
     *,
     expected: list[Any] | None = None,
     eval_metric: str | Callable[..., bool] = "contains",
-    success_fn: Callable[[Any], bool] | None = None,
+    success_fn: Callable[..., bool] | None = None,
     metric_fn: Callable[[Any], float] | None = None,
     confidence_level: float = 0.95,
     runs_per_input: int = 1,
@@ -556,7 +556,11 @@ def compare(
         from flowprompt.testing.eval_metrics import resolve_eval_metric
 
         resolved = resolve_eval_metric(eval_metric)
-        success_fn = lambda output, exp: resolved(str(output), str(exp))  # noqa: E731
+
+        def _eval_success(output: Any, exp: Any) -> bool:
+            return resolved(str(output), str(exp))
+
+        success_fn = _eval_success
 
     cost_estimate = estimate_compare_cost(
         prompts, inputs, model, runs_per_input=runs_per_input
@@ -623,7 +627,7 @@ async def acompare(
     *,
     expected: list[Any] | None = None,
     eval_metric: str | Callable[..., bool] = "contains",
-    success_fn: Callable[[Any], bool] | None = None,
+    success_fn: Callable[..., bool] | None = None,
     metric_fn: Callable[[Any], float] | None = None,
     confidence_level: float = 0.95,
     runs_per_input: int = 1,
@@ -664,7 +668,11 @@ async def acompare(
         from flowprompt.testing.eval_metrics import resolve_eval_metric
 
         resolved = resolve_eval_metric(eval_metric)
-        success_fn = lambda output, exp: resolved(str(output), str(exp))  # noqa: E731
+
+        def _eval_success(output: Any, exp: Any) -> bool:
+            return resolved(str(output), str(exp))
+
+        success_fn = _eval_success
 
     cost_estimate = estimate_compare_cost(
         prompts, inputs, model, runs_per_input=runs_per_input
