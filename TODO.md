@@ -2,6 +2,17 @@
 
 This document tracks remaining features and improvements planned for FlowPrompt.
 
+## Completed in v0.4.0
+
+### Evaluation & Pytest Integration
+- [x] `expected` parameter for `compare()` and `acompare()`
+- [x] Built-in eval metrics: `exact_match`, `contains_match`, `similarity_match`
+- [x] Pytest plugin with `fp` and `fp_compare` fixtures (auto-discovered via pytest11)
+- [x] `PromptTestResult` with `.assert_significant()`, `.assert_winner()`, `.assert_no_errors()`
+- [x] `@pytest.mark.prompt_test` and `@pytest.mark.slow_prompt` markers
+- [x] `--no-slow-prompts` CLI option for pytest
+- [x] Pytest testing example (`examples/11_pytest_testing.py`)
+
 ## Completed in v0.3.0
 
 ### compare() Convenience API

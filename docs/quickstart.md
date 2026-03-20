@@ -48,10 +48,11 @@ result = compare(
         {"text": "Alice (age 30) joined today"},
         {"text": "Bob, 42, from NYC"},
     ],
+    expected=["John Smith, 25", "Alice, 30", "Bob, 42"],  # ground-truth answers
     model="gpt-4o-mini",
 )
 print(result)
-# Shows winner, success rates, latency, and statistical significance
+# Shows winner, accuracy rates, latency, and statistical significance
 ```
 
 Use `dry_run=True` to preview estimated cost before spending API credits:
@@ -77,6 +78,10 @@ result = await acompare(
     model="gpt-4o-mini",
 )
 ```
+
+> **Tip:** FlowPrompt includes a pytest plugin for running prompt tests in CI.
+> Install `flowprompt-ai[pytest]` and use the `fp_compare` fixture. See the
+> [A/B Testing Guide](ab-testing.md#pytest-integration) for details.
 
 ## Streaming Responses
 

@@ -450,3 +450,180 @@ class TestParallelExecution:
         # ThreadPoolExecutor should have been called
         mock_tpe.assert_called_once_with(max_workers=2)
         assert result.total_runs == 2
+
+
+# ---------------------------------------------------------------------------
+# Expected outputs and eval metrics
+# ---------------------------------------------------------------------------
+
+
+class TestExpectedOutputs:
+    """Test the expected parameter and eval_metric integration."""
+
+    def test_expected_length_mismatch_raises(self) -> None:
+        with pytest.raises(ValueError, match="len\\(expected\\)"):
+            compare(
+                {"a": PromptA, "b": PromptB},
+                inputs=[{"text": "hi"}],
+                expected=["one", "two"],
+                model="gpt-4o-mini",
+            )
+
+    def test_expected_with_default_contains_metric(self) -> None:
+        """When expected is provided, outputs are checked with contains_match."""
+        with patch.object(Prompt, "run", return_value="The answer is positive"):
+            result = compare(
+                {"a": PromptA, "b": PromptB},
+                inputs=[{"text": "hi"}],
+                expected=["positive"],
+                model="gpt-4o-mini",
+            )
+
+        assert result.has_expected is True
+        assert result.variants["a"].success_rate == 1.0
+        assert result.variants["b"].success_rate == 1.0
+
+    def test_expected_with_exact_metric(self) -> None:
+        """exact_match should fail when output doesn't exactly match."""
+        with patch.object(Prompt, "run", return_value="The answer is positive"):
+            result = compare(
+                {"a": PromptA, "b": PromptB},
+                inputs=[{"text": "hi"}],
+                expected=["positive"],
+                eval_metric="exact",
+                model="gpt-4o-mini",
+            )
+
+        # "The answer is positive" != "positive" for exact match
+        assert result.variants["a"].success_rate == 0.0
+
+    def test_expected_with_custom_eval_callable(self) -> None:
+        """User can pass a callable as eval_metric."""
+        custom = lambda output, exp: output.startswith(exp)  # noqa: E731
+        with patch.object(Prompt, "run", return_value="hello world"):
+            result = compare(
+                {"a": PromptA, "b": PromptB},
+                inputs=[{"text": "hi"}],
+                expected=["hello"],
+                eval_metric=custom,
+                model="gpt-4o-mini",
+            )
+
+        assert result.variants["a"].success_rate == 1.0
+
+    def test_explicit_success_fn_takes_precedence(self) -> None:
+        """When both expected and success_fn are provided, success_fn gets (output, expected)."""
+        calls = []
+
+        def my_fn(output, expected_val):
+            calls.append((output, expected_val))
+            return True
+
+        with patch.object(Prompt, "run", return_value="ok"):
+            result = compare(
+                {"a": PromptA, "b": PromptB},
+                inputs=[{"text": "hi"}],
+                expected=["exp1"],
+                success_fn=my_fn,
+                model="gpt-4o-mini",
+            )
+
+        # success_fn should have been called with (output, expected_value)
+        assert any(c == ("ok", "exp1") for c in calls)
+        assert result.has_expected is True
+
+    def test_no_expected_backward_compatible(self) -> None:
+        """Without expected, success_fn receives only (output,)."""
+        calls = []
+
+        def my_fn(output):
+            calls.append(output)
+            return True
+
+        with patch.object(Prompt, "run", return_value="ok"):
+            result = compare(
+                {"a": PromptA, "b": PromptB},
+                inputs=[{"text": "hi"}],
+                success_fn=my_fn,
+                model="gpt-4o-mini",
+            )
+
+        assert "ok" in calls
+        assert result.has_expected is False
+
+    def test_str_shows_accuracy_with_expected(self) -> None:
+        """When has_expected=True, __str__ shows 'accuracy' not 'success'."""
+        with patch.object(Prompt, "run", return_value="positive"):
+            result = compare(
+                {"a": PromptA, "b": PromptB},
+                inputs=[{"text": "hi"}],
+                expected=["positive"],
+                model="gpt-4o-mini",
+            )
+
+        text = str(result)
+        assert "accuracy" in text
+        assert "success" not in text.split("=")[-1]  # not in the results area
+
+    def test_str_shows_success_without_expected(self) -> None:
+        """Without expected, __str__ shows 'success'."""
+        with patch.object(Prompt, "run", return_value="ok"):
+            result = compare(
+                {"a": PromptA, "b": PromptB},
+                inputs=[{"text": "hi"}],
+                model="gpt-4o-mini",
+            )
+
+        text = str(result)
+        assert "success" in text
+
+    @pytest.mark.asyncio
+    async def test_acompare_with_expected(self) -> None:
+        """acompare should also support expected."""
+        with patch.object(
+            Prompt, "arun", new_callable=AsyncMock, return_value="The answer is yes"
+        ):
+            result = await acompare(
+                {"a": PromptA, "b": PromptB},
+                inputs=[{"text": "hi"}],
+                expected=["yes"],
+                model="gpt-4o-mini",
+            )
+
+        assert result.has_expected is True
+        assert result.variants["a"].success_rate == 1.0
+
+    @pytest.mark.asyncio
+    async def test_acompare_expected_length_mismatch_raises(self) -> None:
+        with pytest.raises(ValueError, match="len\\(expected\\)"):
+            await acompare(
+                {"a": PromptA, "b": PromptB},
+                inputs=[{"text": "hi"}],
+                expected=["one", "two"],
+                model="gpt-4o-mini",
+            )
+
+    def test_multiple_inputs_with_expected(self) -> None:
+        """Each input should be checked against its corresponding expected value."""
+        outputs = iter(["positive", "negative", "neutral"])
+
+        with patch.object(Prompt, "run", side_effect=lambda **_kw: next(outputs)):
+            # Note: each variant gets its own copy of the iterator, so we need
+            # to handle this carefully. Let's just use a fixed return.
+            pass
+
+        # Use a simpler approach
+        with patch.object(Prompt, "run", return_value="positive"):
+            result = compare(
+                {"a": PromptA, "b": PromptB},
+                inputs=[
+                    {"text": "great"},
+                    {"text": "bad"},
+                ],
+                expected=["positive", "negative"],
+                eval_metric="exact",
+                model="gpt-4o-mini",
+            )
+
+        # "positive" matches "positive" but not "negative" -> 50% accuracy
+        assert result.variants["a"].success_rate == 0.5

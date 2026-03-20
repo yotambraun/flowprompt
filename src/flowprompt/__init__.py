@@ -93,11 +93,17 @@ from flowprompt.storage.yaml_loader import (
 )
 
 # Testing (convenience API)
+from flowprompt.testing.assertions import PromptTestResult
 from flowprompt.testing.compare import (
     ComparisonResult,
     acompare,
     compare,
     estimate_compare_cost,
+)
+from flowprompt.testing.eval_metrics import (
+    contains_match,
+    exact_match,
+    similarity_match,
 )
 
 # Tracing
@@ -138,6 +144,10 @@ __all__ = [
     "acompare",
     "estimate_compare_cost",
     "ComparisonResult",
+    "PromptTestResult",
+    "exact_match",
+    "contains_match",
+    "similarity_match",
     # Storage
     "PromptConfig",
     "PromptRegistry",

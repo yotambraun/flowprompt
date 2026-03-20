@@ -62,6 +62,7 @@ class ComparisonResult:
         confidence_level: Confidence level used for the test.
         total_runs: Total number of runs across all variants.
         estimated_cost: Cost estimation dict, populated in dry_run or normal mode.
+        has_expected: True when ``expected`` outputs were provided to compare().
     """
 
     winner: str | None
@@ -70,6 +71,7 @@ class ComparisonResult:
     confidence_level: float
     total_runs: int
     estimated_cost: dict[str, Any] | None = None
+    has_expected: bool = False
 
     def __str__(self) -> str:
         """Pretty-print the comparison result."""
@@ -100,11 +102,12 @@ class ComparisonResult:
 
         # Normal mode
         lines = ["Comparison Results", "=" * 40]
+        rate_label = "accuracy" if self.has_expected else "success"
 
         for name, v in self.variants.items():
             marker = " << WINNER" if name == self.winner else ""
             lines.append(
-                f"  {name}: {v.success_rate:.0%} success, "
+                f"  {name}: {v.success_rate:.0%} {rate_label}, "
                 f"{v.mean_latency_ms:.0f}ms avg, "
                 f"{v.samples} runs{marker}"
             )
@@ -274,6 +277,7 @@ def _run_variant(
     runs_per_input: int,
     success_fn: Callable[[Any], bool] | None,
     metric_fn: Callable[[Any], float] | None,
+    expected_outputs: list[Any] | None = None,
 ) -> tuple[VariantResult, VariantStats]:
     """Run a single variant against all inputs and collect stats."""
     from flowprompt.testing.experiment import ExperimentResult
@@ -281,7 +285,7 @@ def _run_variant(
     vr = VariantResult(name=name)
     vs = VariantStats(name=name)
 
-    for inp in inputs:
+    for idx, inp in enumerate(inputs):
         for _ in range(runs_per_input):
             start = time.time()
             try:
@@ -289,7 +293,12 @@ def _run_variant(
                 output = prompt.run(model=model, temperature=temperature)
                 latency_ms = (time.time() - start) * 1000
 
-                success = success_fn(output) if success_fn else True
+                if expected_outputs is not None and success_fn is not None:
+                    success = success_fn(output, expected_outputs[idx])
+                elif success_fn is not None:
+                    success = success_fn(output)
+                else:
+                    success = True
                 metric_value = metric_fn(output) if metric_fn else float(success)
 
                 vr.outputs.append(output)
@@ -341,6 +350,7 @@ async def _arun_variant(
     runs_per_input: int,
     success_fn: Callable[[Any], bool] | None,
     metric_fn: Callable[[Any], float] | None,
+    expected_outputs: list[Any] | None = None,
 ) -> tuple[VariantResult, VariantStats]:
     """Run a single variant asynchronously against all inputs."""
     from flowprompt.testing.experiment import ExperimentResult
@@ -348,7 +358,7 @@ async def _arun_variant(
     vr = VariantResult(name=name)
     vs = VariantStats(name=name)
 
-    for inp in inputs:
+    for idx, inp in enumerate(inputs):
         for _ in range(runs_per_input):
             start = time.time()
             try:
@@ -356,7 +366,12 @@ async def _arun_variant(
                 output = await prompt.arun(model=model, temperature=temperature)
                 latency_ms = (time.time() - start) * 1000
 
-                success = success_fn(output) if success_fn else True
+                if expected_outputs is not None and success_fn is not None:
+                    success = success_fn(output, expected_outputs[idx])
+                elif success_fn is not None:
+                    success = success_fn(output)
+                else:
+                    success = True
                 metric_value = metric_fn(output) if metric_fn else float(success)
 
                 vr.outputs.append(output)
@@ -405,6 +420,8 @@ def _build_result(
     confidence_level: float,
     test_type: str,
     estimated_cost: dict[str, Any] | None = None,
+    *,
+    has_expected: bool = False,
 ) -> ComparisonResult:
     """Build a ComparisonResult from collected variant data."""
     total_runs = sum(vr.samples for vr in variant_results.values())
@@ -450,6 +467,7 @@ def _build_result(
         confidence_level=confidence_level,
         total_runs=total_runs,
         estimated_cost=estimated_cost,
+        has_expected=has_expected,
     )
 
 
@@ -458,6 +476,8 @@ def compare(
     inputs: list[dict[str, Any]],
     model: str = "gpt-4o",
     *,
+    expected: list[Any] | None = None,
+    eval_metric: str | Callable[..., bool] = "contains",
     success_fn: Callable[[Any], bool] | None = None,
     metric_fn: Callable[[Any], float] | None = None,
     confidence_level: float = 0.95,
@@ -476,8 +496,16 @@ def compare(
         prompts: Dict mapping variant names to Prompt subclasses.
         inputs: List of input dicts to test each variant against.
         model: Model to use for all variants.
+        expected: Optional list of expected outputs (same length as inputs).
+            When provided, auto-generates a success_fn from eval_metric.
+        eval_metric: Metric for evaluating outputs against expected values.
+            Either a string name ("exact", "contains", "similarity") or
+            a callable ``(output, expected) -> bool``. Default "contains".
+            Only used when ``expected`` is provided and ``success_fn`` is None.
         success_fn: Optional function to determine if an output is successful.
             Defaults to treating all non-error outputs as successful.
+            When both ``expected`` and ``success_fn`` are provided, the
+            success_fn receives ``(output, expected_value)`` as arguments.
         metric_fn: Optional function to compute a numeric metric from output.
         confidence_level: Confidence level for significance testing (default 0.95).
         runs_per_input: Number of times to run each input per variant (default 1).
@@ -490,7 +518,8 @@ def compare(
         In dry_run mode, returns result with winner=None and cost estimate.
 
     Raises:
-        ValueError: If fewer than 2 prompts or 0 inputs are provided.
+        ValueError: If fewer than 2 prompts or 0 inputs are provided,
+            or if ``expected`` length doesn't match ``inputs``.
 
     Example:
         >>> from flowprompt import Prompt, compare
@@ -506,6 +535,7 @@ def compare(
         >>> result = compare(
         ...     {"short": Short, "detailed": Detailed},
         ...     inputs=[{"text": "Python is great"}],
+        ...     expected=["Python is a programming language"],
         ...     model="gpt-4o-mini",
         ... )
         >>> print(result)
@@ -514,6 +544,19 @@ def compare(
         raise ValueError("compare() requires at least 2 prompt variants")
     if len(inputs) < 1:
         raise ValueError("compare() requires at least 1 input")
+    if expected is not None and len(expected) != len(inputs):
+        raise ValueError(
+            f"len(expected)={len(expected)} must equal len(inputs)={len(inputs)}"
+        )
+
+    has_expected = expected is not None
+
+    # When expected is provided and no explicit success_fn, build one from eval_metric
+    if expected is not None and success_fn is None:
+        from flowprompt.testing.eval_metrics import resolve_eval_metric
+
+        resolved = resolve_eval_metric(eval_metric)
+        success_fn = lambda output, exp: resolved(str(output), str(exp))  # noqa: E731
 
     cost_estimate = estimate_compare_cost(
         prompts, inputs, model, runs_per_input=runs_per_input
@@ -536,6 +579,7 @@ def compare(
             confidence_level=confidence_level,
             total_runs=0,
             estimated_cost=cost_estimate,
+            has_expected=has_expected,
         )
 
     variant_results: dict[str, VariantResult] = {}
@@ -553,6 +597,7 @@ def compare(
                 runs_per_input,
                 success_fn,
                 metric_fn,
+                expected if has_expected else None,
             )
             for name, prompt_class in prompts.items()
         }
@@ -562,7 +607,12 @@ def compare(
             variant_stats[name] = vs
 
     return _build_result(
-        variant_results, variant_stats, confidence_level, test_type, cost_estimate
+        variant_results,
+        variant_stats,
+        confidence_level,
+        test_type,
+        cost_estimate,
+        has_expected=has_expected,
     )
 
 
@@ -571,6 +621,8 @@ async def acompare(
     inputs: list[dict[str, Any]],
     model: str = "gpt-4o",
     *,
+    expected: list[Any] | None = None,
+    eval_metric: str | Callable[..., bool] = "contains",
     success_fn: Callable[[Any], bool] | None = None,
     metric_fn: Callable[[Any], float] | None = None,
     confidence_level: float = 0.95,
@@ -585,12 +637,15 @@ async def acompare(
     to run all variants concurrently.
 
     Args:
+        expected: Optional list of expected outputs (same length as inputs).
+        eval_metric: Metric for evaluating outputs against expected values.
         dry_run: If True, estimate cost without making API calls.
 
     Example:
         >>> result = await acompare(
         ...     {"v1": PromptV1, "v2": PromptV2},
         ...     inputs=[{"text": "hello"}],
+        ...     expected=["greeting"],
         ...     model="gpt-4o-mini",
         ... )
     """
@@ -598,6 +653,18 @@ async def acompare(
         raise ValueError("acompare() requires at least 2 prompt variants")
     if len(inputs) < 1:
         raise ValueError("acompare() requires at least 1 input")
+    if expected is not None and len(expected) != len(inputs):
+        raise ValueError(
+            f"len(expected)={len(expected)} must equal len(inputs)={len(inputs)}"
+        )
+
+    has_expected = expected is not None
+
+    if expected is not None and success_fn is None:
+        from flowprompt.testing.eval_metrics import resolve_eval_metric
+
+        resolved = resolve_eval_metric(eval_metric)
+        success_fn = lambda output, exp: resolved(str(output), str(exp))  # noqa: E731
 
     cost_estimate = estimate_compare_cost(
         prompts, inputs, model, runs_per_input=runs_per_input
@@ -620,6 +687,7 @@ async def acompare(
             confidence_level=confidence_level,
             total_runs=0,
             estimated_cost=cost_estimate,
+            has_expected=has_expected,
         )
 
     tasks = [
@@ -632,6 +700,7 @@ async def acompare(
             runs_per_input,
             success_fn,
             metric_fn,
+            expected if has_expected else None,
         )
         for name, prompt_class in prompts.items()
     ]
@@ -645,5 +714,10 @@ async def acompare(
         variant_stats[vs.name] = vs
 
     return _build_result(
-        variant_results, variant_stats, confidence_level, test_type, cost_estimate
+        variant_results,
+        variant_stats,
+        confidence_level,
+        test_type,
+        cost_estimate,
+        has_expected=has_expected,
     )

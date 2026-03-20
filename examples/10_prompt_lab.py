@@ -159,6 +159,54 @@ def run_comparison() -> None:
 
 
 # =============================================================================
+# Step 5: Compare with expected outputs (evaluation mode)
+# =============================================================================
+
+EXPECTED_SENTIMENTS = [
+    "positive",   # "I absolutely love this product!"
+    "negative",   # "Worst experience I've ever had."
+    "neutral",    # "The package arrived on Tuesday."
+    "positive",   # "This is amazing, best purchase ever!"
+    "negative",   # "I'm so frustrated with the service."
+    "neutral",    # "The report contains 50 pages."
+    "positive",   # "What a wonderful surprise!"
+    "negative",   # "I regret buying this."
+    "neutral",    # "The temperature today is 72F."
+    "positive",   # "Exceeded all my expectations!"
+]
+
+
+def run_evaluation() -> None:
+    """Run prompts with expected outputs to measure accuracy."""
+    prompts = {
+        "basic": SentimentBasic,
+        "detailed": SentimentDetailed,
+        "few_shot": SentimentFewShot,
+    }
+
+    print("Running Evaluation (with expected outputs)")
+    print("=" * 50)
+
+    result = compare(
+        prompts,
+        inputs=TEST_INPUTS,
+        expected=EXPECTED_SENTIMENTS,
+        eval_metric="exact",  # or "contains", "similarity"
+        model="gpt-4o-mini",
+        temperature=0.0,
+    )
+
+    print(result)
+    print()
+
+    # The output now shows "accuracy" instead of "success"
+    for name, variant in result.variants.items():
+        print(f"{name}:")
+        print(f"  Accuracy:     {variant.success_rate:.0%}")
+        print(f"  Avg latency:  {variant.mean_latency_ms:.0f}ms")
+
+
+# =============================================================================
 # Main
 # =============================================================================
 
@@ -181,6 +229,8 @@ def main() -> None:
 
     if has_key:
         run_comparison()
+        print()
+        run_evaluation()
     else:
         print("Set OPENAI_API_KEY (or another provider key) to run the comparison.")
         print("The preview above works without any API key.")

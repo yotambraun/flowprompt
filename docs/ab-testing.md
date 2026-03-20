@@ -7,6 +7,8 @@ FlowPrompt's A/B testing module provides a complete framework for running contro
 ## Table of Contents
 
 - [Quick Compare](#quick-compare)
+- [Evaluation with Expected Outputs](#evaluation-with-expected-outputs)
+- [Pytest Integration](#pytest-integration)
 - [Full Experiment Control](#full-experiment-control)
 - [Experiment Configuration](#experiment-configuration)
 - [Traffic Allocation](#traffic-allocation)
@@ -55,6 +57,121 @@ result = await acompare(
 - `variants` -- per-variant `VariantResult` with success rate, latency, errors
 - `statistical_result` -- full `StatisticalResult` with p-value and effect size
 - `to_dict()` -- serialize to dict for logging/storage
+
+## Evaluation with Expected Outputs
+
+When you have ground-truth answers, pass `expected` to `compare()` to measure accuracy:
+
+```python
+from flowprompt import Prompt, compare
+
+class PromptV1(Prompt):
+    system = "Classify sentiment as positive, negative, or neutral."
+    user = "{text}"
+
+class PromptV2(Prompt):
+    system = "You are a sentiment expert. Reply with one word: positive, negative, or neutral."
+    user = "Text: {text}"
+
+result = compare(
+    {"v1": PromptV1, "v2": PromptV2},
+    inputs=[
+        {"text": "I love this!"},
+        {"text": "Terrible product."},
+        {"text": "The meeting is at 3pm."},
+    ],
+    expected=["positive", "negative", "neutral"],
+    model="gpt-4o-mini",
+)
+print(result)
+# Comparison Results
+# ========================================
+#   v1: 67% accuracy, 230ms avg, 3 runs
+#   v2: 100% accuracy, 250ms avg, 3 runs << WINNER
+```
+
+### Eval Metrics
+
+The `eval_metric` parameter controls how outputs are compared to expected values:
+
+```python
+# Default: substring match (expected appears in output)
+result = compare(..., expected=answers, eval_metric="contains")
+
+# Exact match (case-insensitive, stripped)
+result = compare(..., expected=answers, eval_metric="exact")
+
+# Similarity match (difflib SequenceMatcher, default threshold 0.7)
+result = compare(..., expected=answers, eval_metric="similarity")
+
+# Custom callable
+def my_metric(output: str, expected: str) -> bool:
+    return expected.lower() in output.lower().split()
+
+result = compare(..., expected=answers, eval_metric=my_metric)
+```
+
+When `expected` is provided, the output shows "accuracy" instead of "success".
+
+Your explicit `success_fn` always takes precedence -- when both `expected` and `success_fn` are provided, the success_fn receives `(output, expected_value)` as arguments.
+
+## Pytest Integration
+
+FlowPrompt includes a pytest plugin that's auto-discovered via entry point (zero config):
+
+```bash
+pip install flowprompt-ai[pytest]
+```
+
+### Fixtures
+
+**`fp`** (session-scoped) -- helper with `.compare()`, `.acompare()`, `.estimate_cost()`, `.Prompt()`:
+
+```python
+def test_cost_check(fp):
+    cost = fp.estimate_cost(
+        {"v1": PromptV1, "v2": PromptV2},
+        inputs=test_data,
+        model="gpt-4o-mini",
+    )
+    assert cost["estimated_cost_usd"] < 1.0
+```
+
+**`fp_compare`** (function-scoped) -- wraps `compare()` and returns a `PromptTestResult`:
+
+```python
+def test_prompt_quality(fp_compare):
+    result = fp_compare(
+        {"v1": PromptV1, "v2": PromptV2},
+        inputs=test_inputs,
+        expected=expected_outputs,
+        model="gpt-4o-mini",
+    )
+    result.assert_no_errors()
+    result.assert_significant()
+    result.assert_winner("v2")
+```
+
+### PromptTestResult
+
+`fp_compare` returns a `PromptTestResult` that wraps `ComparisonResult` with assertion helpers:
+
+- `.assert_significant(threshold=0.05)` -- fail unless p-value <= threshold
+- `.assert_winner(expected)` -- fail unless the named variant won
+- `.assert_no_errors()` -- fail if any variant had errors
+- `.is_significant` / `.winner` / `.p_value` -- convenience properties
+- All other attributes delegate to the underlying `ComparisonResult`
+
+### Markers and CLI Options
+
+```python
+@pytest.mark.prompt_test      # Mark as a prompt test
+@pytest.mark.slow_prompt      # Mark as expensive (skip with --no-slow-prompts)
+```
+
+```bash
+pytest --no-slow-prompts  # Skip tests marked @pytest.mark.slow_prompt
+```
 
 ## Cost Estimation
 

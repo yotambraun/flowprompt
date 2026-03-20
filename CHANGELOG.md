@@ -11,6 +11,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Redis cache backend
 - Langfuse integration
 
+## [0.4.0] - 2026-03-20
+
+### Added
+- **`expected` parameter for `compare()` and `acompare()`**: Ground-truth evaluation for prompt outputs
+  - Pass `expected=[...]` alongside `inputs` to measure accuracy instead of just success
+  - Output displays "accuracy" instead of "success" when expected values are provided
+- **Built-in eval metrics**: `exact_match`, `contains_match`, `similarity_match` (stdlib only, no new deps)
+  - `eval_metric` parameter accepts string names or custom `(output, expected) -> bool` callables
+  - `resolve_eval_metric()` for programmatic metric resolution
+- **Pytest integration** (auto-discovered via `pytest11` entry point, zero config):
+  - `fp` fixture (session-scoped): `FlowPromptHelper` with `.compare`, `.acompare`, `.estimate_cost`, `.Prompt`
+  - `fp_compare` fixture (function-scoped): wraps `compare()`, returns `PromptTestResult`
+  - `@pytest.mark.prompt_test` and `@pytest.mark.slow_prompt` markers
+  - `--no-slow-prompts` CLI option to skip expensive tests
+- **`PromptTestResult`** assertion wrapper:
+  - `.assert_significant(threshold=0.05)` -- fail unless statistically significant
+  - `.assert_winner(expected)` -- fail unless the named variant won
+  - `.assert_no_errors()` -- fail if any variant recorded errors
+  - `.is_significant`, `.winner`, `.p_value` convenience properties
+- New `pytest` optional dependency: `pip install flowprompt-ai[pytest]`
+- New example: `examples/11_pytest_testing.py`
+
 ## [0.3.0] - 2026-02-06
 
 ### Added
@@ -147,7 +169,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite
 - Full type annotations
 
-[unreleased]: https://github.com/yotambraun/flowprompt/compare/v0.3.0...HEAD
+[unreleased]: https://github.com/yotambraun/flowprompt/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/yotambraun/flowprompt/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/yotambraun/flowprompt/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/yotambraun/flowprompt/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/yotambraun/flowprompt/compare/v0.1.0...v0.2.0

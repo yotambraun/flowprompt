@@ -102,6 +102,10 @@ multimodal = [
     "pypdf>=3.15.0",
 ]
 
+pytest = [
+    "pytest>=7.0.0",
+]
+
 all = [
     "flowprompt-ai[cli,tracing,optimization,multimodal]",
 ]
@@ -113,6 +117,9 @@ Repository = "https://github.com/yotambraun/flowprompt"
 Changelog = "https://github.com/yotambraun/flowprompt/blob/main/CHANGELOG.md"
 Issues = "https://github.com/yotambraun/flowprompt/issues"
 "Source Code" = "https://github.com/yotambraun/flowprompt"
+
+[project.entry-points."pytest11"]
+flowprompt = "flowprompt.testing.pytest_plugin"
 
 [project.scripts]
 flowprompt = "flowprompt.cli.main:main"
@@ -178,6 +185,8 @@ asyncio_mode = "auto"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
+    "prompt_test: marks a prompt A/B test",
+    "slow_prompt: marks an expensive prompt test (skip with --no-slow-prompts)",
 ]
 
 # Coverage configuration

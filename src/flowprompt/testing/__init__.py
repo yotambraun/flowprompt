@@ -47,12 +47,19 @@ from flowprompt.testing.allocation import (
     WeightedAllocator,
     get_allocator,
 )
+from flowprompt.testing.assertions import PromptTestResult
 from flowprompt.testing.compare import (
     ComparisonResult,
     VariantResult,
     acompare,
     compare,
     estimate_compare_cost,
+)
+from flowprompt.testing.eval_metrics import (
+    contains_match,
+    exact_match,
+    resolve_eval_metric,
+    similarity_match,
 )
 from flowprompt.testing.experiment import (
     AllocationStrategy,
@@ -112,4 +119,11 @@ __all__ = [
     "ABTestRunner",
     "ExperimentSummary",
     "create_simple_experiment",
+    # Eval metrics
+    "exact_match",
+    "contains_match",
+    "similarity_match",
+    "resolve_eval_metric",
+    # Assertions
+    "PromptTestResult",
 ]

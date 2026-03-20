@@ -431,7 +431,9 @@ result = compare(
 - `prompts` (dict[str, type]): Dict mapping variant names to Prompt subclasses (min 2)
 - `inputs` (list[dict]): Test inputs to run each variant against (min 1)
 - `model` (str): Model to use
-- `success_fn` (callable, optional): Function to determine success
+- `expected` (list, optional): Expected outputs, same length as inputs. When provided, auto-generates success_fn from eval_metric.
+- `eval_metric` (str | callable): Metric for expected output evaluation. Built-in: `"exact"`, `"contains"` (default), `"similarity"`. Or a `(output, expected) -> bool` callable.
+- `success_fn` (callable, optional): Function to determine success. When both `expected` and `success_fn` are provided, receives `(output, expected_value)`.
 - `metric_fn` (callable, optional): Function to compute numeric metric
 - `confidence_level` (float): Confidence level for significance (default 0.95)
 - `runs_per_input` (int): Runs per input per variant (default 1)
@@ -482,6 +484,56 @@ Results for a single prompt variant.
 - `total_cost_usd` (float): Total cost
 - `outputs` (list): Outputs from each run
 - `errors` (list[str]): Errors encountered
+
+### Eval Metrics
+
+Built-in functions for comparing outputs against expected values.
+
+```python
+from flowprompt.testing import exact_match, contains_match, similarity_match
+
+exact_match("Hello World", "hello world")       # True (case-insensitive)
+contains_match("The answer is 42.", "42")        # True
+similarity_match("hello world", "hello worlds")  # True (threshold=0.7)
+```
+
+#### exact_match(output, expected) -> bool
+Case-insensitive exact match after stripping whitespace.
+
+#### contains_match(output, expected) -> bool
+Check if expected value appears in the output (case-insensitive).
+
+#### similarity_match(output, expected, threshold=0.7) -> bool
+Compare using `difflib.SequenceMatcher`. Returns True if ratio >= threshold.
+
+#### resolve_eval_metric(metric) -> Callable
+Resolve a string name (`"exact"`, `"contains"`, `"similarity"`) or callable to a metric function.
+
+### Pytest Fixtures
+
+Auto-discovered via `pytest11` entry point. Install with `pip install flowprompt-ai[pytest]`.
+
+#### fp (session-scoped)
+`FlowPromptHelper` with `.compare()`, `.acompare()`, `.estimate_cost()`, `.Prompt()`.
+
+#### fp_compare (function-scoped)
+Returns a wrapper that calls `compare()` and returns a `PromptTestResult`.
+
+### PromptTestResult
+
+Wraps `ComparisonResult` with pytest-friendly assertions.
+
+**Properties:**
+- `is_significant` (bool): Whether the test found significance
+- `winner` (str | None): Winning variant name
+- `p_value` (float | None): P-value from significance test
+
+**Methods:**
+- `assert_significant(threshold=0.05)`: Fail unless p-value <= threshold
+- `assert_winner(expected)`: Fail unless the named variant won
+- `assert_no_errors()`: Fail if any variant had errors
+
+All other attributes delegate to the underlying `ComparisonResult`.
 
 ### ABTestRunner
 

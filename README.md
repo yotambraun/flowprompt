@@ -59,17 +59,45 @@ class Detailed(Prompt):
 result = compare(
     {"concise": Concise, "detailed": Detailed},
     inputs=[{"text": "Python is a programming language..."}, ...],
+    expected=["Python is a versatile language", ...],
     model="gpt-4o-mini",
-    success_fn=lambda out: len(out) > 20,
 )
 print(result)
 # Comparison Results
 # ========================================
-#   concise: 90% success, 245ms avg, 50 runs << WINNER
-#   detailed: 72% success, 410ms avg, 50 runs
+#   concise: 90% accuracy, 245ms avg, 50 runs << WINNER
+#   detailed: 72% accuracy, 410ms avg, 50 runs
 #
 #   p=0.0231 (SIGNIFICANT)
 #   effect size: -20.00%
+```
+
+---
+
+## Test Prompts in CI
+
+FlowPrompt includes a pytest plugin (auto-discovered, zero config):
+
+```python
+# test_prompts.py
+import pytest
+
+@pytest.mark.prompt_test
+def test_sentiment(fp_compare):
+    result = fp_compare(
+        {"v1": PromptV1, "v2": PromptV2},
+        inputs=[{"text": "I love this!"}],
+        expected=["positive"],
+        model="gpt-4o-mini",
+    )
+    result.assert_significant()
+    result.assert_winner("v1")
+    result.assert_no_errors()
+```
+
+```bash
+pip install flowprompt-ai[pytest]
+pytest --no-slow-prompts  # skip expensive tests
 ```
 
 ---
@@ -86,6 +114,7 @@ pip install flowprompt-ai
 
 ```bash
 pip install flowprompt-ai[all]        # Everything
+pip install flowprompt-ai[pytest]     # Pytest fixtures & markers
 pip install flowprompt-ai[cli]        # CLI tools
 pip install flowprompt-ai[tracing]    # OpenTelemetry support
 pip install flowprompt-ai[multimodal] # Images, PDFs, audio, video
