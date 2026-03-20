@@ -163,16 +163,16 @@ def run_comparison() -> None:
 # =============================================================================
 
 EXPECTED_SENTIMENTS = [
-    "positive",   # "I absolutely love this product!"
-    "negative",   # "Worst experience I've ever had."
-    "neutral",    # "The package arrived on Tuesday."
-    "positive",   # "This is amazing, best purchase ever!"
-    "negative",   # "I'm so frustrated with the service."
-    "neutral",    # "The report contains 50 pages."
-    "positive",   # "What a wonderful surprise!"
-    "negative",   # "I regret buying this."
-    "neutral",    # "The temperature today is 72F."
-    "positive",   # "Exceeded all my expectations!"
+    "positive",  # "I absolutely love this product!"
+    "negative",  # "Worst experience I've ever had."
+    "neutral",  # "The package arrived on Tuesday."
+    "positive",  # "This is amazing, best purchase ever!"
+    "negative",  # "I'm so frustrated with the service."
+    "neutral",  # "The report contains 50 pages."
+    "positive",  # "What a wonderful surprise!"
+    "negative",  # "I regret buying this."
+    "neutral",  # "The temperature today is 72F."
+    "positive",  # "Exceeded all my expectations!"
 ]
 
 
