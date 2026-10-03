@@ -1,0 +1,40 @@
+{"text": "Great value (#0)", "expected": "positive"}
+{"text": "Stopped working (#1)", "expected": "negative"}
+{"text": "Has two buttons (#2)", "expected": "neutral"}
+{"text": "Great value (#3)", "expected": "positive"}
+{"text": "Awful support (#4)", "expected": "negative"}
+{"text": "Has two buttons (#5)", "expected": "neutral"}
+{"text": "Five stars (#6)", "expected": "positive"}
+{"text": "Stopped working (#7)", "expected": "negative"}
+{"text": "Arrived Tuesday (#8)", "expected": "neutral"}
+{"text": "Exceeded expectations (#9)", "expected": "positive"}
+{"text": "Broke quickly (#10)", "expected": "negative"}
+{"text": "Weighs 300 g (#11)", "expected": "neutral"}
+{"text": "Works perfectly (#12)", "expected": "positive"}
+{"text": "Stopped working (#13)", "expected": "negative"}
+{"text": "Comes in blue (#14)", "expected": "neutral"}
+{"text": "Great value (#15)", "expected": "positive"}
+{"text": "Cheap plastic (#16)", "expected": "negative"}
+{"text": "Has two buttons (#17)", "expected": "neutral"}
+{"text": "Exceeded expectations (#18)", "expected": "positive"}
+{"text": "Cheap plastic (#19)", "expected": "negative"}
+{"text": "Weighs 300 g (#20)", "expected": "neutral"}
+{"text": "Great value (#21)", "expected": "positive"}
+{"text": "Waste of money (#22)", "expected": "negative"}
+{"text": "Comes in blue (#23)", "expected": "neutral"}
+{"text": "Exceeded expectations (#24)", "expected": "positive"}
+{"text": "Cheap plastic (#25)", "expected": "negative"}
+{"text": "Arrived Tuesday (#26)", "expected": "neutral"}
+{"text": "Love it (#27)", "expected": "positive"}
+{"text": "Waste of money (#28)", "expected": "negative"}
+{"text": "Has two buttons (#29)", "expected": "neutral"}
+{"text": "Love it (#30)", "expected": "positive"}
+{"text": "Awful support (#31)", "expected": "negative"}
+{"text": "Arrived Tuesday (#32)", "expected": "neutral"}
+{"text": "Works perfectly (#33)", "expected": "positive"}
+{"text": "Cheap plastic (#34)", "expected": "negative"}
+{"text": "Has two buttons (#35)", "expected": "neutral"}
+{"text": "Five stars (#36)", "expected": "positive"}
+{"text": "Cheap plastic (#37)", "expected": "negative"}
+{"text": "Weighs 300 g (#38)", "expected": "neutral"}
+{"text": "Exceeded expectations (#39)", "expected": "positive"}

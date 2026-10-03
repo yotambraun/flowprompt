@@ -10,6 +10,7 @@ The base class for all prompts.
 from flowprompt import Prompt
 from pydantic import BaseModel
 
+
 class MyPrompt(Prompt):
     system = "System message"
     user = "User message with {variable}"
@@ -86,7 +87,7 @@ Asynchronous streaming iterator.
 
 ### configure_cache()
 
-Configure the global cache settings.
+Configure the global cache and turn it on for `Prompt.run()` / `arun()`.
 
 ```python
 from flowprompt import configure_cache, FileCache
@@ -95,26 +96,30 @@ from flowprompt import configure_cache, FileCache
 configure_cache(enabled=True, default_ttl=3600)
 
 # File cache
-configure_cache(
-    backend=FileCache(".flowprompt_cache"),
-    default_ttl=86400
-)
+configure_cache(backend=FileCache(".flowprompt_cache"), default_ttl=86400)
 ```
 
 **Parameters:**
 - `enabled` (bool): Enable or disable caching
-- `default_ttl` (int): Default time-to-live in seconds
+- `default_ttl` (float | None): Default time-to-live in seconds (None = never expires)
 - `backend` (CacheBackend): Cache backend to use
+
+Identical requests (same rendered messages, model, temperature, output schema
+and generation parameters) are served from the cache. Streaming calls are not
+cached. The cache stays off until `configure_cache()` is called.
 
 ### get_cache()
 
-Get the global cache instance.
+Get the global cache instance (for statistics or manual use). Calling it does
+not enable caching.
 
 ```python
 from flowprompt import get_cache
 
 cache = get_cache()
-print(cache.stats)  # {'hits': 10, 'misses': 5, 'hit_rate': 0.67}
+print(
+    cache.stats
+)  # {'hits': 10, 'misses': 5, 'hit_rate': 0.67, 'size': 5, 'enabled': True}
 ```
 
 ### MemoryCache
@@ -133,36 +138,62 @@ cache = FileCache("/path/to/cache/dir")
 
 ---
 
-## Tracing
+## Usage and cost
 
-### get_tracer()
+### track_usage()
 
-Get the global tracer instance.
+Context manager collecting a `CallUsage` record for every LLM call made
+inside the block (nestable, isolated per thread and asyncio task).
 
 ```python
-from flowprompt import get_tracer
+from flowprompt import track_usage
 
-tracer = get_tracer()
-summary = tracer.get_summary()
+with track_usage() as calls:
+    MyPrompt(text="hi").run(model="gpt-4o-mini")
+total = sum(c.cost_usd or 0 for c in calls)
 ```
 
-**Summary Fields:**
-- `total_requests`: Number of requests made
-- `total_tokens`: Total tokens used
-- `total_input_tokens`: Input tokens used
-- `total_output_tokens`: Output tokens used
-- `total_cost_usd`: Total cost in USD
-- `avg_latency_ms`: Average latency in milliseconds
+### CallUsage
+
+- `model` (str)
+- `prompt_tokens`, `completion_tokens`, `total_tokens` (int)
+- `cost_usd` (float | None): provider-reported cost or litellm price map; `None` when unknown; 0 for cache hits
+- `latency_ms` (float)
+- `cached` (bool)
+
+---
+
+## Tracing
 
 ### configure_tracer()
 
-Configure the global tracer.
+Create the global tracer. From then on every `run()` / `arun()` call records a
+span (prompt class name, model, tokens, cost, latency, cache status, errors),
+also exported through OpenTelemetry when it is installed.
 
 ```python
 from flowprompt import configure_tracer
 
-configure_tracer(enabled=True)
+tracer = configure_tracer(service_name="my-app")
 ```
+
+### get_tracer()
+
+Get (or create) the global tracer.
+
+```python
+from flowprompt import get_tracer
+
+summary = get_tracer().get_summary()
+```
+
+**Summary fields:**
+- `total_requests`: Number of traced calls
+- `total_tokens`: Total tokens
+- `total_cost_usd`: Total cost in USD
+- `avg_latency_ms`: Average latency in milliseconds
+- `error_rate`: Fraction of calls that raised
+- `by_model`: Requests, tokens and cost per model
 
 ---
 
@@ -211,6 +242,7 @@ Extended field configuration for prompt variables.
 ```python
 from flowprompt import Prompt, Field
 
+
 class MyPrompt(Prompt):
     text: str = Field(description="Input text to process")
     max_length: int = Field(default=100, ge=1, le=1000)
@@ -227,16 +259,18 @@ Optimize a prompt using a dataset and metric.
 ```python
 from flowprompt.optimize import optimize, ExampleDataset, Example, ExactMatch
 
-dataset = ExampleDataset([
-    Example(input={"text": "John is 25"}, output={"name": "John", "age": 25}),
-])
+dataset = ExampleDataset(
+    [
+        Example(input={"text": "John is 25"}, output={"name": "John", "age": 25}),
+    ]
+)
 
 result = optimize(
     MyPrompt,
     dataset=dataset,
     metric=ExactMatch(),
     strategy="fewshot",  # or "instruction", "optuna", "bootstrap"
-    model="gpt-4o"
+    model="gpt-4o",
 )
 
 OptimizedPrompt = result.best_prompt_class
@@ -312,8 +346,10 @@ Create custom metrics.
 ```python
 from flowprompt.optimize import CustomMetric
 
+
 def my_metric(predictions, ground_truth):
     return sum(p == gt for p, gt in zip(predictions, ground_truth)) / len(predictions)
+
 
 metric = CustomMetric("my_metric", my_metric)
 ```
@@ -325,10 +361,12 @@ Combine multiple metrics with weights.
 ```python
 from flowprompt.optimize import CompositeMetric, ExactMatch, F1Score
 
-metric = CompositeMetric([
-    (ExactMatch(), 0.6),
-    (F1Score(), 0.4),
-])
+metric = CompositeMetric(
+    [
+        (ExactMatch(), 0.6),
+        (F1Score(), 0.4),
+    ]
+)
 ```
 
 ### ExampleDataset
@@ -338,12 +376,11 @@ Dataset container for optimization.
 ```python
 from flowprompt.optimize import ExampleDataset, Example
 
-dataset = ExampleDataset([
-    Example(
-        input={"text": "John is 25"},
-        output={"name": "John", "age": 25}
-    ),
-])
+dataset = ExampleDataset(
+    [
+        Example(input={"text": "John is 25"}, output={"name": "John", "age": 25}),
+    ]
+)
 
 # Split into train/test
 train, test = dataset.split(train_ratio=0.7, seed=42)
@@ -360,7 +397,7 @@ from flowprompt.optimize import FewShotOptimizer
 
 optimizer = FewShotOptimizer(
     num_examples=3,
-    selection_strategy="bootstrap"  # or "random", "diverse", "similar"
+    selection_strategy="bootstrap",  # or "random", "diverse", "similar"
 )
 result = optimizer.optimize(MyPrompt, dataset, metric, model="gpt-4o")
 ```
@@ -372,10 +409,7 @@ Optimizes prompt instructions using LLM feedback.
 ```python
 from flowprompt.optimize import InstructionOptimizer
 
-optimizer = InstructionOptimizer(
-    optimizer_model="gpt-4o",
-    num_candidates=5
-)
+optimizer = InstructionOptimizer(optimizer_model="gpt-4o", num_candidates=5)
 result = optimizer.optimize(MyPrompt, dataset, metric)
 ```
 
@@ -397,10 +431,7 @@ Self-improvement through bootstrapping.
 ```python
 from flowprompt.optimize import BootstrapOptimizer
 
-optimizer = BootstrapOptimizer(
-    bootstrap_rounds=3,
-    confidence_threshold=0.8
-)
+optimizer = BootstrapOptimizer(bootstrap_rounds=3, confidence_threshold=0.8)
 result = optimizer.optimize(MyPrompt, dataset, metric)
 ```
 
@@ -410,80 +441,131 @@ result = optimizer.optimize(MyPrompt, dataset, metric)
 
 ### compare()
 
-One-call prompt comparison with statistical significance testing.
+Compare variants on the same inputs with paired significance tests. See the
+[A/B testing guide](ab-testing.md) and [Statistical methods](statistics.md).
 
 ```python
 from flowprompt import compare
 
 result = compare(
     {"v1": PromptV1, "v2": PromptV2},
-    inputs=[{"text": "sample"}],
+    inputs=[{"text": t} for t in texts],
+    expected=labels,
+    eval_metric="exact",
     model="gpt-4o-mini",
-    success_fn=lambda out: len(out) > 10,
-    confidence_level=0.95,
-    runs_per_input=3,
-    temperature=0.0,
-    test_type="z_test",
 )
 ```
 
 **Parameters:**
-- `prompts` (dict[str, type]): Dict mapping variant names to Prompt subclasses (min 2)
-- `inputs` (list[dict]): Test inputs to run each variant against (min 1)
-- `model` (str): Model to use
-- `expected` (list, optional): Expected outputs, same length as inputs. When provided, auto-generates success_fn from eval_metric.
-- `eval_metric` (str | callable): Metric for expected output evaluation. Built-in: `"exact"`, `"contains"` (default), `"similarity"`. Or a `(output, expected) -> bool` callable.
-- `success_fn` (callable, optional): Function to determine success. When both `expected` and `success_fn` are provided, receives `(output, expected_value)`.
-- `metric_fn` (callable, optional): Function to compute numeric metric
-- `confidence_level` (float): Confidence level for significance (default 0.95)
-- `runs_per_input` (int): Runs per input per variant (default 1)
-- `temperature` (float): LLM temperature (default 0.0)
-- `test_type` (str): Statistical test ("z_test", "chi_squared", "t_test", "bayesian")
+- `prompts` (dict[str, variant]): At least 2 variants. A variant is a Prompt subclass, a `(PromptClass, "model")` tuple, a `PromptVariant`, or any callable `fn(input: dict) -> output` (sync or async)
+- `inputs` (list[dict]): Inputs; every variant runs on every input (min 1)
+- `model` (str): Default model for Prompt variants
+- `expected` (list, optional): Expected outputs, same length as `inputs`
+- `eval_metric` (str | callable): Scorer for `(output, expected)`: `"contains"` (default), `"exact"`, `"regex"`, `"numeric"`, `"similarity"`, or a callable returning bool or a float score
+- `success_fn` (callable, optional): Pass/fail function `(output)` or, with `expected`, `(output, expected)`
+- `metric_fn` (callable, optional): Numeric score `(output) -> float`, used as the outcome when there is no `expected`/`success_fn`
+- `confidence_level` (float): Default 0.95
+- `runs_per_input` (int): Runs per input per variant (default 1); averaged per input before testing
+- `temperature` (float): Default temperature for Prompt variants (default 0.0)
+- `test_type` (str): `"auto"` (default; exact McNemar or paired permutation). The unpaired `"z_test"`, `"chi_squared"`, `"t_test"`, `"bayesian"` are deprecated for `compare()`
+- `dry_run` (bool): Only estimate cost
+- `control` (str, optional): Baseline variant (default: the first)
+- `comparisons` (str): `"control"` (default) or `"all"` pairs; Holm-adjusted when there is more than one comparison
 
 **Returns:** `ComparisonResult`
 
 ### acompare()
 
-Async variant of `compare()` that runs variants in parallel via `asyncio.gather`.
-
-```python
-from flowprompt import acompare
-
-result = await acompare(
-    {"v1": PromptV1, "v2": PromptV2},
-    inputs=[{"text": "sample"}],
-    model="gpt-4o-mini",
-)
-```
+Async version of `compare()`; variants run concurrently. Prompt variants use
+`arun()`, async callables are awaited, sync callables run in a worker thread.
 
 ### ComparisonResult
 
-Result of comparing prompt variants.
-
 **Attributes:**
-- `winner` (str | None): Name of the winning variant, or None
+- `winner` (str | None): Variant significantly better than the others, or None
 - `variants` (dict[str, VariantResult]): Per-variant results
-- `statistical_result` (StatisticalResult | None): Significance test result
-- `confidence_level` (float): Confidence level used
-- `total_runs` (int): Total runs across all variants
+- `statistical_result` (StatisticalResult | None): The deciding comparison
+- `comparisons` (list[StatisticalResult]): All comparisons that were tested
+- `control` (str | None), `comparison_mode` (`"control"` | `"all"`), `correction` (`"holm"` | None)
+- `outcome` (str): `"accuracy"`, `"success"`, `"score"` or `"no_error"`; `has_ground_truth` (bool)
+- `n_inputs`, `runs_per_input`, `total_runs` (int); `confidence_level` (float)
+- `estimated_cost` (dict | None); `notes` (list[str])
+- `verdict` (str): One plain-English sentence
+- `enough_data` (bool), `min_inputs_for_significance` (int)
+- `total_cost_usd` (float), `cost_known` (bool)
 
 **Methods:**
-- `__str__()`: Pretty-printed summary
-- `to_dict()`: Serialize to dictionary
+- `__str__()`: Text report (ASCII)
+- `to_markdown()`, `to_html()`: Markdown and self-contained HTML reports
+- `save_report(path)`: Write `.html`, `.md`, `.json` or text by extension
+- `sample_size_plan(min_detectable_difference=0.1, power=0.8)`: `SampleSizePlan` using this run as a pilot
+- `to_dict()`: Serialize to a dictionary
 
 ### VariantResult
 
-Results for a single prompt variant.
+- `name`, `label` (str)
+- `samples`, `successes` (int), `success_rate` (float)
+- `mean_score` (float | None): Input-level accuracy or mean score; `ci_low`, `ci_high`
+- `mean_latency_ms`, `p95_latency_ms` (float)
+- `total_cost_usd` (float), `cost_known` (bool), `cost_per_correct` (float | None)
+- `total_tokens`, `llm_calls` (int)
+- `outputs` (list), `errors` (list[str]), `error_count` (int)
+- `scores` (list[list[float]]): Per-input run scores; `records` (list[RunRecord])
 
-**Attributes:**
-- `name` (str): Variant name
-- `samples` (int): Number of runs
-- `successes` (int): Number of successful runs
-- `success_rate` (float): Success fraction (0.0-1.0)
-- `mean_latency_ms` (float): Average latency
-- `total_cost_usd` (float): Total cost
-- `outputs` (list): Outputs from each run
-- `errors` (list[str]): Errors encountered
+### StatisticalResult
+
+- `significant` (bool), `p_value` (float), `adjusted_p` (float | None)
+- `difference` (float | None): Treatment minus control; `ci_low`, `ci_high`; `confidence_interval` (tuple)
+- `effect_size` (float): Equals `difference` for the paired tests (relative lift for the legacy unpaired tests)
+- `relative_lift` (float | None): None when the control scores 0
+- `method` / `test_name` (str): e.g. `"mcnemar_exact"`, `"paired_permutation"`
+- `n_inputs` (int | None), `control`, `treatment` (str | None)
+- `details` (dict): e.g. discordant counts, discordance rate, Monte Carlo error
+
+### Paired statistics
+
+All in `flowprompt.testing`:
+
+- `paired_test(control, treatment, confidence_level=0.95)`: the test `compare()` uses; per-input scores or lists of run scores
+- `mcnemar_exact(b, c, mid_p=False) -> float`
+- `paired_sign_flip_test(differences, seed=0) -> (p, how, monte_carlo_error)`
+- `paired_bootstrap_interval(differences, confidence_level=0.95)`: BCa interval
+- `agresti_min_interval(b, c, n, confidence_level=0.95)`
+- `wilson_interval(successes, n, confidence_level=0.95)`
+- `holm_adjust(p_values) -> list[float]`
+
+### plan_sample_size()
+
+```python
+from flowprompt import plan_sample_size
+
+plan = plan_sample_size(0.10, discordance=0.2, n_variants=2, cost_per_call=0.0004)
+plan.n_inputs, plan.total_calls, plan.estimated_cost_usd
+print(plan)  # To detect a 10-point difference at 80% power you need ~155 inputs (...)
+```
+
+Parameters: `min_detectable_difference`, `discordance`, `baseline_accuracy`,
+`power` (0.8), `alpha` (0.05), `sd_difference` (numeric scores),
+`n_variants`, `runs_per_input`, `cost_per_call` or `model` with
+`input_tokens_per_call`/`output_tokens_per_call`.
+
+### SequentialMcNemar
+
+Always-valid paired test for early stopping: `update(control_ok, treatment_ok)`,
+`rejected`, `p_value`, `evidence`, `n`, `stopped_at`.
+
+### Scorers and variants
+
+- `flowprompt.testing.scorers`: `exact()`, `contains()`, `regex()`, `numeric()`, `similarity()`, `resolve_scorer()`
+- `flowprompt.testing.PromptVariant(prompt, model=None, temperature=None, run_kwargs={})`
+- `flowprompt.testing.model_variants(prompt, models)`
+
+### FakeLLM
+
+`flowprompt.testing.FakeLLM(responder=None, latency_s=0.0)`: context manager
+that answers LLM calls offline. `responder` is a string or a function of the
+messages returning a string, dict or pydantic model. `.calls` records every
+call.
 
 ### Eval Metrics
 
@@ -492,8 +574,8 @@ Built-in functions for comparing outputs against expected values.
 ```python
 from flowprompt.testing import exact_match, contains_match, similarity_match
 
-exact_match("Hello World", "hello world")       # True (case-insensitive)
-contains_match("The answer is 42.", "42")        # True
+exact_match("Hello World", "hello world")  # True (case-insensitive)
+contains_match("The answer is 42.", "42")  # True
 similarity_match("hello world", "hello worlds")  # True (threshold=0.7)
 ```
 
@@ -529,7 +611,7 @@ Wraps `ComparisonResult` with pytest-friendly assertions.
 - `p_value` (float | None): P-value from significance test
 
 **Methods:**
-- `assert_significant(threshold=0.05)`: Fail unless p-value <= threshold
+- `assert_significant(threshold=0.05)`: Fail unless the (Holm-adjusted, when several variants were compared) p-value <= threshold
 - `assert_winner(expected)`: Fail unless the named variant won
 - `assert_no_errors()`: Fail if any variant had errors
 
@@ -633,6 +715,7 @@ Base class for prompts with multimodal content.
 from flowprompt.multimodal import MultimodalPrompt, ImageContent
 from pydantic import BaseModel
 
+
 class ImageAnalyzer(MultimodalPrompt):
     system = "Analyze images in detail."
     user = "What do you see?"
@@ -641,9 +724,8 @@ class ImageAnalyzer(MultimodalPrompt):
         description: str
         objects: list[str]
 
-result = ImageAnalyzer(
-    images=[ImageContent.from_file("photo.jpg")]
-).run(model="gpt-4o")
+
+result = ImageAnalyzer(images=[ImageContent.from_file("photo.jpg")]).run(model="gpt-4o")
 ```
 
 **Methods:**
@@ -687,9 +769,11 @@ Specialized prompt for vision/image tasks.
 ```python
 from flowprompt.multimodal import VisionPrompt
 
+
 class Analyzer(VisionPrompt):
     system = "You are an image expert."
     user = "Describe this image."
+
 
 result = Analyzer().with_image("photo.jpg").run(model="gpt-4o")
 ```
@@ -701,7 +785,9 @@ result = Analyzer().with_image("photo.jpg").run(model="gpt-4o")
 Create a prompt to describe an image.
 
 ```python
-result = VisionPrompt.describe("photo.jpg", detail_level="comprehensive").run(model="gpt-4o")
+result = VisionPrompt.describe("photo.jpg", detail_level="comprehensive").run(
+    model="gpt-4o"
+)
 ```
 
 #### VisionPrompt.compare(images, comparison_type)
@@ -710,8 +796,7 @@ Create a prompt to compare images.
 
 ```python
 result = VisionPrompt.compare(
-    ["before.jpg", "after.jpg"],
-    comparison_type="differences"
+    ["before.jpg", "after.jpg"], comparison_type="differences"
 ).run(model="gpt-4o")
 ```
 
@@ -722,9 +807,11 @@ Specialized prompt for document analysis.
 ```python
 from flowprompt.multimodal import DocumentPrompt
 
+
 class Summarizer(DocumentPrompt):
     system = "Summarize documents."
     user = "What are the key points?"
+
 
 result = Summarizer().with_document("report.pdf").run(model="gpt-4o")
 ```
@@ -744,10 +831,9 @@ result = DocumentPrompt.summarize("report.pdf", length="brief").run(model="gpt-4
 Extract specific information from a document.
 
 ```python
-result = DocumentPrompt.extract_info(
-    "contract.pdf",
-    info_type="dates"
-).run(model="gpt-4o")
+result = DocumentPrompt.extract_info("contract.pdf", info_type="dates").run(
+    model="gpt-4o"
+)
 ```
 
 ### ImageContent
@@ -810,7 +896,7 @@ from flowprompt.multimodal import VideoContent
 video = VideoContent.from_file(
     "video.mp4",
     frame_interval=1.0,  # Extract frame every 1 second
-    max_frames=10
+    max_frames=10,
 )
 
 # Frames are converted to ImageContent

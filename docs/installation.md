@@ -73,7 +73,8 @@ ollama serve
 
 ```python
 import flowprompt
-print(flowprompt.__version__)  # Should print "0.2.1"
+
+print(flowprompt.__version__)  # e.g. "0.5.0"
 ```
 
 ## Development Installation
@@ -91,6 +92,14 @@ Run tests to verify:
 
 ```bash
 uv run pytest
+uv run python scripts/run_examples.py   # every example, offline
+```
+
+Build the documentation site locally:
+
+```bash
+uv sync --group docs
+uv run mkdocs serve          # or: uv run mkdocs build --strict
 ```
 
 ## Next Steps
