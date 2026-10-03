@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="470" viewBox="0 0 900 470">
+<rect width="900" height="470" fill="#ffffff"/>
+<text x="32.0" y="40.0" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="19" font-weight="650" fill="#1d1d1f" text-anchor="start">Power: how often the truly better prompt is declared the winner</text>
+<text x="32.0" y="64.0" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#6b6b70" text-anchor="start">Two prompts, 100 inputs, one run each; inputs share difficulty, as in real evals. 4,000 experiments per point; bands are 95% intervals.</text>
+<rect x="32" y="80" width="12" height="12" rx="2" fill="#d0803a"/>
+<text x="50.0" y="90.5" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#1d1d1f" text-anchor="start">FlowPrompt 0.3.0 (unpaired z-test)</text>
+<rect x="314.0" y="80" width="12" height="12" rx="2" fill="#2f6fde"/>
+<text x="332.0" y="90.5" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#1d1d1f" text-anchor="start">FlowPrompt now (exact McNemar)</text>
+<line x1="80" x2="830" y1="400.0" y2="400.0" stroke="#e7e7e4"/>
+<text x="70.0" y="404.0" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#6b6b70" text-anchor="end">0%</text>
+<line x1="80" x2="830" y1="342.4" y2="342.4" stroke="#e7e7e4"/>
+<text x="70.0" y="346.4" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#6b6b70" text-anchor="end">20%</text>
+<line x1="80" x2="830" y1="284.8" y2="284.8" stroke="#e7e7e4"/>
+<text x="70.0" y="288.8" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#6b6b70" text-anchor="end">40%</text>
+<line x1="80" x2="830" y1="227.2" y2="227.2" stroke="#e7e7e4"/>
+<text x="70.0" y="231.2" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#6b6b70" text-anchor="end">60%</text>
+<line x1="80" x2="830" y1="169.6" y2="169.6" stroke="#e7e7e4"/>
+<text x="70.0" y="173.6" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#6b6b70" text-anchor="end">80%</text>
+<line x1="80" x2="830" y1="112.0" y2="112.0" stroke="#e7e7e4"/>
+<text x="70.0" y="116.0" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#6b6b70" text-anchor="end">100%</text>
+<text x="80.0" y="420.0" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#6b6b70" text-anchor="middle">0</text>
+<text x="205.0" y="420.0" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#6b6b70" text-anchor="middle">2.5</text>
+<text x="330.0" y="420.0" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#6b6b70" text-anchor="middle">5</text>
+<text x="455.0" y="420.0" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#6b6b70" text-anchor="middle">7.5</text>
+<text x="580.0" y="420.0" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#6b6b70" text-anchor="middle">10</text>
+<text x="705.0" y="420.0" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#6b6b70" text-anchor="middle">12.5</text>
+<text x="830.0" y="420.0" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#6b6b70" text-anchor="middle">15</text>
+<text x="455.0" y="444.0" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#6b6b70" text-anchor="middle">true accuracy difference between the prompts (percentage points)</text>
+<polygon points="80.0,396.6 205.0,387.8 330.0,373.5 455.0,343.4 580.0,299.8 705.0,246.7 830.0,192.9 830.0,201.1 705.0,255.6 580.0,308.2 455.0,350.3 330.0,378.4 205.0,391.2 80.0,398.2" fill="#d0803a" fill-opacity="0.16"/>
+<polyline points="80.0,397.6 205.0,389.6 330.0,376.1 455.0,346.9 580.0,304.0 705.0,251.2 830.0,197.0" fill="none" stroke="#d0803a" stroke-width="2.4"/>
+<circle cx="80.0" cy="397.6" r="3.6" fill="#ffffff" stroke="#d0803a" stroke-width="2"/>
+<circle cx="205.0" cy="389.6" r="3.6" fill="#ffffff" stroke="#d0803a" stroke-width="2"/>
+<circle cx="330.0" cy="376.1" r="3.6" fill="#ffffff" stroke="#d0803a" stroke-width="2"/>
+<circle cx="455.0" cy="346.9" r="3.6" fill="#ffffff" stroke="#d0803a" stroke-width="2"/>
+<circle cx="580.0" cy="304.0" r="3.6" fill="#ffffff" stroke="#d0803a" stroke-width="2"/>
+<circle cx="705.0" cy="251.2" r="3.6" fill="#ffffff" stroke="#d0803a" stroke-width="2"/>
+<circle cx="830.0" cy="197.0" r="3.6" fill="#ffffff" stroke="#d0803a" stroke-width="2"/>
+<polygon points="80.0,394.9 205.0,384.7 330.0,367.8 455.0,334.6 580.0,289.1 705.0,237.0 830.0,184.9 830.0,192.8 705.0,245.9 580.0,297.7 455.0,341.9 330.0,373.2 205.0,388.4 80.0,397.0" fill="#2f6fde" fill-opacity="0.16"/>
+<polyline points="80.0,396.1 205.0,386.7 330.0,370.6 455.0,338.4 580.0,293.4 705.0,241.5 830.0,188.8" fill="none" stroke="#2f6fde" stroke-width="2.4"/>
+<circle cx="80.0" cy="396.1" r="3.6" fill="#ffffff" stroke="#2f6fde" stroke-width="2"/>
+<circle cx="205.0" cy="386.7" r="3.6" fill="#ffffff" stroke="#2f6fde" stroke-width="2"/>
+<circle cx="330.0" cy="370.6" r="3.6" fill="#ffffff" stroke="#2f6fde" stroke-width="2"/>
+<circle cx="455.0" cy="338.4" r="3.6" fill="#ffffff" stroke="#2f6fde" stroke-width="2"/>
+<circle cx="580.0" cy="293.4" r="3.6" fill="#ffffff" stroke="#2f6fde" stroke-width="2"/>
+<circle cx="705.0" cy="241.5" r="3.6" fill="#ffffff" stroke="#2f6fde" stroke-width="2"/>
+<circle cx="830.0" cy="188.8" r="3.6" fill="#ffffff" stroke="#2f6fde" stroke-width="2"/>
+<text x="840.0" y="188.9" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="600" fill="#2f6fde" text-anchor="start" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">73%</text>
+<text x="840.0" y="204.9" font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="600" fill="#d0803a" text-anchor="start" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">70%</text>
+</svg>
