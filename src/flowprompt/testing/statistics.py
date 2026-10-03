@@ -28,15 +28,29 @@ class StatisticalResult:
     """Result of statistical significance test.
 
     Attributes:
-        significant: Whether the result is statistically significant.
-        p_value: P-value of the test.
+        significant: Whether the result is statistically significant (using
+            ``adjusted_p`` when a multiple-comparison correction was applied).
+        p_value: Raw (unadjusted) p-value of the test.
         confidence_level: Confidence level used.
-        effect_size: Estimated effect size (relative improvement).
-        confidence_interval: Confidence interval for the effect size.
+        effect_size: Estimated effect size. For the paired tests used by
+            ``compare()`` this is the absolute difference (treatment minus
+            control, e.g. 0.12 = 12 accuracy points). The legacy unpaired
+            tests report the relative improvement here.
+        confidence_interval: Confidence interval for the difference.
         power: Statistical power of the test.
         sample_size_recommendation: Recommended sample size if not significant.
         test_name: Name of the statistical test used.
         details: Additional test details.
+        method: Name of the method (e.g. ``"mcnemar_exact"``).
+        difference: Treatment minus control (absolute).
+        ci_low: Lower confidence bound for ``difference``.
+        ci_high: Upper confidence bound for ``difference``.
+        n_inputs: Number of paired inputs the test is based on.
+        adjusted_p: p-value after the multiple-comparison correction
+            (Holm), or None when there was a single comparison.
+        relative_lift: ``difference / control_rate``; None when undefined.
+        control: Name of the control variant.
+        treatment: Name of the treatment variant.
     """
 
     significant: bool
@@ -48,20 +62,37 @@ class StatisticalResult:
     sample_size_recommendation: int | None = None
     test_name: str = ""
     details: dict[str, Any] = field(default_factory=dict)
+    method: str = ""
+    difference: float | None = None
+    ci_low: float | None = None
+    ci_high: float | None = None
+    n_inputs: int | None = None
+    adjusted_p: float | None = None
+    relative_lift: float | None = None
+    control: str | None = None
+    treatment: str | None = None
 
     def summary(self) -> str:
         """Generate a human-readable summary."""
         status = "SIGNIFICANT" if self.significant else "NOT SIGNIFICANT"
-        return (
-            f"Statistical Result ({self.test_name}):\n"
-            f"  Status: {status}\n"
-            f"  P-value: {self.p_value:.4f}\n"
-            f"  Confidence Level: {self.confidence_level:.0%}\n"
-            f"  Effect Size: {self.effect_size:+.2%}\n"
-            f"  Power: {self.power:.2%}"
-            if self.power
-            else ""
-        )
+        lines = [
+            f"Statistical Result ({self.method or self.test_name}):",
+            f"  Status: {status}",
+            f"  P-value: {self.p_value:.4f}",
+        ]
+        if self.adjusted_p is not None:
+            lines.append(f"  Adjusted p-value (Holm): {self.adjusted_p:.4f}")
+        lines.append(f"  Confidence Level: {self.confidence_level:.0%}")
+        if self.difference is not None:
+            ci = ""
+            if self.ci_low is not None and self.ci_high is not None:
+                ci = f" [{self.ci_low:+.3f}, {self.ci_high:+.3f}]"
+            lines.append(f"  Difference: {self.difference:+.3f}{ci}")
+        else:
+            lines.append(f"  Effect Size: {self.effect_size:+.2%}")
+        if self.power:
+            lines.append(f"  Power: {self.power:.2%}")
+        return "\n".join(lines)
 
 
 def _normal_cdf(x: float) -> float:
