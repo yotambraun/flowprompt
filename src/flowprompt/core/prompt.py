@@ -3,12 +3,76 @@
 from __future__ import annotations
 
 import hashlib
+import sys
 from typing import Any, ClassVar, Generic, TypeVar, cast
 
 from jinja2 import Template
 from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic.fields import FieldInfo
 
 OutputT = TypeVar("OutputT", bound=BaseModel)
+
+
+def _is_plain_value(value: Any) -> bool:
+    """Return True for values that can only be meant as a field default."""
+    if isinstance(value, FieldInfo):
+        return True
+    return not (callable(value) or hasattr(value, "__get__"))
+
+
+def _annotate_inherited_field_overrides(
+    bases: tuple[type, ...], namespace: dict[str, Any]
+) -> None:
+    """Add annotations for unannotated overrides of inherited fields.
+
+    Pydantic requires every field override to carry a type annotation, so
+    ``class MyPrompt(Prompt): system = "..."`` would otherwise fail with
+    ``PydanticUserError``. FlowPrompt's documented style omits annotations,
+    so we reuse the annotation declared on the base class (e.g. ``str`` for
+    ``system`` and ``user``) before pydantic inspects the namespace.
+    """
+    inherited: dict[str, Any] = {}
+    for base in bases:
+        for klass in reversed(base.__mro__):
+            fields = klass.__dict__.get("__pydantic_fields__")
+            if isinstance(fields, dict):
+                for field_name, info in fields.items():
+                    inherited[field_name] = info.annotation
+    if not inherited:
+        return
+
+    missing = {
+        key: inherited[key]
+        for key, value in namespace.items()
+        if key in inherited and not key.startswith("_") and _is_plain_value(value)
+    }
+    if not missing:
+        return
+
+    if "__annotations__" in namespace:
+        annotations = namespace["__annotations__"]
+    elif sys.version_info >= (3, 14):  # pragma: no cover - exercised on 3.14+
+        # PEP 649: annotations are produced lazily by ``__annotate__``.
+        from annotationlib import (
+            Format,
+            call_annotate_function,
+            get_annotate_from_class_namespace,
+        )
+
+        annotate = get_annotate_from_class_namespace(namespace)
+        annotations = (
+            dict(call_annotate_function(annotate, format=Format.FORWARDREF))
+            if annotate
+            else {}
+        )
+        namespace["__annotations__"] = annotations
+    else:
+        annotations = {}
+        namespace["__annotations__"] = annotations
+
+    for key, annotation in missing.items():
+        if key not in annotations:
+            annotations[key] = annotation
 
 
 class PromptMeta(type(BaseModel)):  # type: ignore[misc]
@@ -21,6 +85,8 @@ class PromptMeta(type(BaseModel)):  # type: ignore[misc]
         namespace: dict[str, Any],
         **kwargs: Any,
     ) -> PromptMeta:
+        if bases:
+            _annotate_inherited_field_overrides(bases, namespace)
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
 
         # Register Output class if defined
