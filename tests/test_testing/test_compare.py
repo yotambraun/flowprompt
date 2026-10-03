@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -436,8 +437,11 @@ class TestParallelExecution:
         """Verify ThreadPoolExecutor is used for sync compare()."""
         with (
             patch.object(Prompt, "run", return_value="ok"),
-            patch(
-                "flowprompt.testing.compare.ThreadPoolExecutor",
+            # patch.object on the module: on Python 3.10, the dotted-path form
+            # resolves flowprompt.testing.compare to the compare() function.
+            patch.object(
+                sys.modules["flowprompt.testing.compare"],
+                "ThreadPoolExecutor",
                 wraps=ThreadPoolExecutor,
             ) as mock_tpe,
         ):
