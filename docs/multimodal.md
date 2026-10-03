@@ -22,6 +22,7 @@ Here's a simple example of analyzing an image:
 from flowprompt.multimodal import VisionPrompt, ImageContent
 from pydantic import BaseModel
 
+
 # Define a vision prompt
 class ImageAnalyzer(VisionPrompt):
     system = "You are an expert at analyzing images."
@@ -31,6 +32,7 @@ class ImageAnalyzer(VisionPrompt):
         description: str
         objects: list[str]
         mood: str
+
 
 # Analyze an image
 result = ImageAnalyzer().with_image("photo.jpg").run(model="gpt-4o")
@@ -56,7 +58,7 @@ result = VisionPrompt.describe("https://example.com/image.jpg").run(model="gpt-4
 # With detail level
 result = VisionPrompt.describe(
     "photo.jpg",
-    detail_level="comprehensive"  # "brief", "comprehensive", "technical"
+    detail_level="comprehensive",  # "brief", "comprehensive", "technical"
 ).run(model="gpt-4o")
 ```
 
@@ -80,9 +82,7 @@ image = ImageContent.from_bytes(data, format=ImageFormat.JPEG)
 
 # With metadata
 image = ImageContent.from_file(
-    "photo.jpg",
-    detail="high",
-    alt_text="Product photo showing red sneakers"
+    "photo.jpg", detail="high", alt_text="Product photo showing red sneakers"
 )
 ```
 
@@ -93,6 +93,7 @@ Build custom prompts for specific vision tasks:
 ```python
 from flowprompt.multimodal import VisionPrompt, ImageContent
 from pydantic import BaseModel
+
 
 class ProductAnalyzer(VisionPrompt):
     """Analyze product images for e-commerce."""
@@ -108,6 +109,7 @@ class ProductAnalyzer(VisionPrompt):
         condition: str
         estimated_value: float
         description: str
+
 
 # Use with image
 analyzer = ProductAnalyzer().with_image("product.jpg")
@@ -128,19 +130,21 @@ from flowprompt.multimodal import VisionPrompt
 # Compare two images
 result = VisionPrompt.compare(
     images=["before.jpg", "after.jpg"],
-    comparison_type="differences"  # "general", "differences", "similarities"
+    comparison_type="differences",  # "general", "differences", "similarities"
 ).run(model="gpt-4o")
+
 
 # Custom multi-image prompt
 class MultiImageAnalyzer(VisionPrompt):
     system = "Compare and contrast the provided images."
     user = "What are the key differences and similarities?"
 
-result = MultiImageAnalyzer().with_images([
-    "image1.jpg",
-    "image2.jpg",
-    "image3.jpg"
-]).run(model="gpt-4o")
+
+result = (
+    MultiImageAnalyzer()
+    .with_images(["image1.jpg", "image2.jpg", "image3.jpg"])
+    .run(model="gpt-4o")
+)
 ```
 
 ### Image Detail Levels
@@ -170,10 +174,11 @@ from flowprompt.multimodal import DocumentPrompt, DocumentContent
 # Quick summarization
 result = DocumentPrompt.summarize(
     "report.pdf",
-    length="medium"  # "brief", "medium", "detailed"
+    length="medium",  # "brief", "medium", "detailed"
 ).run(model="gpt-4o")
 
 print(result)
+
 
 # Custom document analysis
 class ContractAnalyzer(DocumentPrompt):
@@ -185,6 +190,7 @@ class ContractAnalyzer(DocumentPrompt):
         key_terms: list[str]
         obligations: list[str]
         expiration_date: str | None
+
 
 result = ContractAnalyzer().with_document("contract.pdf").run(model="gpt-4o")
 ```
@@ -211,8 +217,7 @@ doc = DocumentContent.from_file("guide.md")
 
 # From text directly
 doc = DocumentContent.from_text(
-    "This is the document content...",
-    format=DocumentFormat.TXT
+    "This is the document content...", format=DocumentFormat.TXT
 )
 ```
 
@@ -225,23 +230,26 @@ Extract text and render pages as images:
 doc = DocumentContent.from_file(
     "report.pdf",
     extract_images=True,  # Render pages as images
-    max_pages=10          # Limit pages processed
+    max_pages=10,  # Limit pages processed
 )
 
 # Access extracted content
-print(doc.text)           # Extracted text
-print(doc.page_count)     # Number of pages
-print(len(doc.pages))     # Number of page images
+print(doc.text)  # Extracted text
+print(doc.page_count)  # Number of pages
+print(len(doc.pages))  # Number of page images
+
 
 # Use in prompt
 class VisualDocumentAnalyzer(DocumentPrompt):
     system = "Analyze documents including their visual layout."
     user = "Describe the document structure and key visual elements."
 
-result = VisualDocumentAnalyzer().with_document(
-    "report.pdf",
-    extract_images=True
-).run(model="gpt-4o")
+
+result = (
+    VisualDocumentAnalyzer()
+    .with_document("report.pdf", extract_images=True)
+    .run(model="gpt-4o")
+)
 ```
 
 ### Information Extraction
@@ -252,8 +260,9 @@ Extract specific information from documents:
 # Extract entities
 result = DocumentPrompt.extract_info(
     "article.pdf",
-    info_type="entities"  # "key_facts", "entities", "dates", "numbers"
+    info_type="entities",  # "key_facts", "entities", "dates", "numbers"
 ).run(model="gpt-4o")
+
 
 # Custom extraction
 class DataExtractor(DocumentPrompt):
@@ -266,6 +275,7 @@ class DataExtractor(DocumentPrompt):
         profit_margin: float
         key_metrics: dict[str, float]
 
+
 result = DataExtractor().with_document("financial_report.pdf").run(model="gpt-4o")
 ```
 
@@ -277,6 +287,7 @@ result = DataExtractor().with_document("financial_report.pdf").run(model="gpt-4o
 from flowprompt.multimodal import MultimodalPrompt, AudioContent
 from pydantic import BaseModel
 
+
 class AudioAnalyzer(MultimodalPrompt):
     system = "Transcribe and analyze audio content."
     user = "Transcribe this audio and summarize key points."
@@ -286,6 +297,7 @@ class AudioAnalyzer(MultimodalPrompt):
         summary: str
         speakers: int
         topics: list[str]
+
 
 # From file
 audio = AudioContent.from_file("recording.mp3")
@@ -303,11 +315,11 @@ from flowprompt.multimodal import AudioContent, AudioFormat
 
 # Supported formats
 formats = [
-    AudioFormat.MP3,   # .mp3
-    AudioFormat.WAV,   # .wav
-    AudioFormat.OGG,   # .ogg
+    AudioFormat.MP3,  # .mp3
+    AudioFormat.WAV,  # .wav
+    AudioFormat.OGG,  # .ogg
     AudioFormat.FLAC,  # .flac
-    AudioFormat.M4A,   # .m4a
+    AudioFormat.M4A,  # .m4a
     AudioFormat.WEBM,  # .webm
 ]
 
@@ -321,8 +333,7 @@ Provide pre-computed transcription for better results:
 
 ```python
 audio = AudioContent.from_file(
-    "recording.mp3",
-    transcription="This is the pre-computed transcription..."
+    "recording.mp3", transcription="This is the pre-computed transcription..."
 )
 
 # The transcription can be used alongside or instead of audio
@@ -337,15 +348,17 @@ Videos are processed by extracting frames:
 ```python
 from flowprompt.multimodal import MultimodalPrompt, VideoContent
 
+
 class VideoAnalyzer(MultimodalPrompt):
     system = "Analyze video content frame by frame."
     user = "Describe what happens in this video."
+
 
 # Extract frames from video
 video = VideoContent.from_file(
     "demo.mp4",
     frame_interval=1.0,  # Extract frame every 1 second
-    max_frames=10        # Maximum 10 frames
+    max_frames=10,  # Maximum 10 frames
 )
 
 result = VideoAnalyzer(video=video).run(model="gpt-4o")
@@ -368,10 +381,12 @@ frames = video.extract_frames()  # Returns list[ImageContent]
 for frame in frames:
     print(f"Frame at {frame.metadata['timestamp_seconds']:.1f}s")
 
+
 # Use frames directly
 class FrameAnalyzer(VisionPrompt):
     system = "Analyze video frames."
     user = "Describe changes across these frames."
+
 
 result = FrameAnalyzer().with_images(frames).run(model="gpt-4o")
 ```
@@ -396,6 +411,7 @@ Combine multiple content types in a single prompt:
 ```python
 from flowprompt.multimodal import MultimodalPrompt, ImageContent, DocumentContent
 
+
 class ComprehensiveAnalyzer(MultimodalPrompt):
     system = "Analyze all provided content comprehensively."
     user = "Compare the document content with the images and provide insights."
@@ -404,6 +420,7 @@ class ComprehensiveAnalyzer(MultimodalPrompt):
         summary: str
         consistency_check: str
         recommendations: list[str]
+
 
 # Add multiple content types
 analyzer = ComprehensiveAnalyzer()
@@ -423,22 +440,20 @@ class FlexiblePrompt(MultimodalPrompt):
     system = "System message"
     user = "Analyze the provided content."
 
+
 # Content before text (default)
 prompt = FlexiblePrompt(
-    images=[ImageContent.from_file("photo.jpg")],
-    content_position="before"
+    images=[ImageContent.from_file("photo.jpg")], content_position="before"
 )
 
 # Content after text
 prompt = FlexiblePrompt(
-    images=[ImageContent.from_file("photo.jpg")],
-    content_position="after"
+    images=[ImageContent.from_file("photo.jpg")], content_position="after"
 )
 
 # Inline (mixed)
 prompt = FlexiblePrompt(
-    images=[ImageContent.from_file("photo.jpg")],
-    content_position="inline"
+    images=[ImageContent.from_file("photo.jpg")], content_position="inline"
 )
 ```
 
@@ -478,14 +493,10 @@ Gemini models with multimodal support:
 
 ```python
 # Gemini Pro Vision
-result = VisionPrompt.describe("photo.jpg").run(
-    model="gemini/gemini-pro-vision"
-)
+result = VisionPrompt.describe("photo.jpg").run(model="gemini/gemini-pro-vision")
 
 # Gemini 2.0 Flash
-result = VisionPrompt.describe("photo.jpg").run(
-    model="gemini/gemini-2.0-flash-exp"
-)
+result = VisionPrompt.describe("photo.jpg").run(model="gemini/gemini-2.0-flash-exp")
 ```
 
 ### Feature Support Matrix
@@ -526,6 +537,7 @@ Resize images before processing to reduce costs:
 from PIL import Image
 import io
 
+
 def optimize_image(path: str, max_size: int = 1024) -> ImageContent:
     """Resize image while maintaining aspect ratio."""
     img = Image.open(path)
@@ -544,6 +556,7 @@ def optimize_image(path: str, max_size: int = 1024) -> ImageContent:
 
     return ImageContent.from_bytes(buffer.read(), format=ImageFormat.JPEG)
 
+
 # Use optimized image
 image = optimize_image("large_photo.jpg")
 result = VisionPrompt.describe(image).run(model="gpt-4o")
@@ -555,10 +568,7 @@ Process only necessary pages to control costs:
 
 ```python
 # Process first 10 pages only
-doc = DocumentContent.from_file(
-    "large_report.pdf",
-    max_pages=10
-)
+doc = DocumentContent.from_file("large_report.pdf", max_pages=10)
 
 # Or extract specific sections first using PyPDF2/pypdf
 import pypdf
@@ -589,6 +599,7 @@ for image_path in image_paths:
     result = VisionPrompt.describe(image_path).run(model="gpt-4o")
     results.append(result)
 
+
 # Do this (one call with multiple images)
 class BatchAnalyzer(VisionPrompt):
     system = "Analyze each image and provide results."
@@ -596,6 +607,7 @@ class BatchAnalyzer(VisionPrompt):
 
     class Output(BaseModel):
         results: list[dict[str, str]]
+
 
 result = BatchAnalyzer().with_images(image_paths).run(model="gpt-4o")
 ```
@@ -606,6 +618,7 @@ Multimodal operations can fail in various ways:
 
 ```python
 from pathlib import Path
+
 
 def safe_analyze_image(path: str) -> dict:
     """Safely analyze an image with error handling."""
@@ -624,6 +637,7 @@ def safe_analyze_image(path: str) -> dict:
 
     except Exception as e:
         return {"error": str(e)}
+
 
 # Use it
 result = safe_analyze_image("photo.jpg")
@@ -646,9 +660,11 @@ doc.process()  # Processes immediately
 summarizer = DocumentPrompt.summarize(doc)
 result1 = summarizer.run(model="gpt-4o")
 
+
 class DetailedAnalyzer(DocumentPrompt):
     system = "Provide detailed analysis."
     user = "Analyze this document in detail."
+
 
 result2 = DetailedAnalyzer().with_document(doc).run(model="gpt-4o")
 # Document is not re-processed!
@@ -660,13 +676,15 @@ Choose models based on your needs:
 
 ```python
 # For complex visual analysis - use GPT-4 Vision
-result = ComplexAnalyzer().with_image("complex_scene.jpg").run(
-    model="gpt-4o"
-)
+result = ComplexAnalyzer().with_image("complex_scene.jpg").run(model="gpt-4o")
 
 # For simple classification - use faster/cheaper models
-result = SimpleClassifier().with_image("product.jpg").run(
-    model="gpt-4o-mini"  # Cheaper, faster
+result = (
+    SimpleClassifier()
+    .with_image("product.jpg")
+    .run(
+        model="gpt-4o-mini"  # Cheaper, faster
+    )
 )
 ```
 
@@ -676,6 +694,7 @@ Ensure content is valid before processing:
 
 ```python
 from flowprompt.multimodal import ImageContent
+
 
 def validate_and_create_image(path: str) -> ImageContent | None:
     """Validate image before creating ImageContent."""
@@ -705,6 +724,7 @@ def validate_and_create_image(path: str) -> ImageContent | None:
         print(f"Invalid image: {e}")
         return None
 
+
 # Use it
 image = validate_and_create_image("photo.jpg")
 if image:
@@ -721,6 +741,7 @@ Process content before sending to the model:
 from flowprompt.multimodal import DocumentContent
 import re
 
+
 class PreprocessedDocumentContent(DocumentContent):
     """Custom document content with preprocessing."""
 
@@ -729,12 +750,13 @@ class PreprocessedDocumentContent(DocumentContent):
 
         if self.text:
             # Clean up text
-            self.text = re.sub(r'\s+', ' ', self.text)  # Normalize whitespace
-            self.text = re.sub(r'[^\w\s.,!?-]', '', self.text)  # Remove special chars
+            self.text = re.sub(r"\s+", " ", self.text)  # Normalize whitespace
+            self.text = re.sub(r"[^\w\s.,!?-]", "", self.text)  # Remove special chars
 
             # Extract key sections
-            sections = self.text.split('\n\n')
-            self.metadata['section_count'] = len(sections)
+            sections = self.text.split("\n\n")
+            self.metadata["section_count"] = len(sections)
+
 
 # Use custom content
 doc = PreprocessedDocumentContent.from_file("report.pdf")
@@ -765,17 +787,20 @@ Optimize multimodal prompts:
 from flowprompt.optimize import optimize, ExampleDataset, Example, ExactMatch
 
 # Create examples with images
-dataset = ExampleDataset([
-    Example(
-        input={"image_path": "product1.jpg"},
-        output={"category": "electronics", "confidence": 0.95}
-    ),
-    Example(
-        input={"image_path": "product2.jpg"},
-        output={"category": "clothing", "confidence": 0.90}
-    ),
-    # More examples...
-])
+dataset = ExampleDataset(
+    [
+        Example(
+            input={"image_path": "product1.jpg"},
+            output={"category": "electronics", "confidence": 0.95},
+        ),
+        Example(
+            input={"image_path": "product2.jpg"},
+            output={"category": "clothing", "confidence": 0.90},
+        ),
+        # More examples...
+    ]
+)
+
 
 # Optimize vision prompt
 class ProductClassifier(VisionPrompt):
@@ -786,11 +811,9 @@ class ProductClassifier(VisionPrompt):
         category: str
         confidence: float
 
+
 result = optimize(
-    ProductClassifier,
-    dataset=dataset,
-    metric=ExactMatch(),
-    strategy="fewshot"
+    ProductClassifier, dataset=dataset, metric=ExactMatch(), strategy="fewshot"
 )
 ```
 
@@ -798,7 +821,7 @@ result = optimize(
 
 - Learn about [Optimization](optimization.md) to improve multimodal prompts
 - Check the [API Reference](api.md) for detailed documentation
-- See [Examples](../examples/) for more multimodal patterns
+- See [Examples](https://github.com/yotambraun/flowprompt/tree/main/examples) for more multimodal patterns
 
 ## Dependencies
 

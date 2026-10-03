@@ -10,6 +10,7 @@ Create a simple prompt that extracts information from text:
 from flowprompt import Prompt
 from pydantic import BaseModel
 
+
 class ExtractUser(Prompt):
     """Extract user information from text."""
 
@@ -20,10 +21,11 @@ class ExtractUser(Prompt):
         name: str
         age: int
 
+
 # Run the prompt
 result = ExtractUser(text="John Smith is 25 years old").run(model="gpt-4o")
 print(f"Name: {result.name}")  # Name: John Smith
-print(f"Age: {result.age}")    # Age: 25
+print(f"Age: {result.age}")  # Age: 25
 ```
 
 ## Compare Prompts
@@ -33,13 +35,16 @@ The fastest way to find which prompt works better -- with statistical significan
 ```python
 from flowprompt import Prompt, compare
 
+
 class PromptV1(Prompt):
     system = "You are a precise data extractor."
     user = "Extract the name and age from: {text}"
 
+
 class PromptV2(Prompt):
     system = "Extract structured data. Be accurate and concise."
     user = "From the following text, extract name and age: {text}"
+
 
 result = compare(
     {"v1": PromptV1, "v2": PromptV2},
@@ -52,8 +57,14 @@ result = compare(
     model="gpt-4o-mini",
 )
 print(result)
-# Shows winner, accuracy rates, latency, and statistical significance
 ```
+
+`print(result)` shows each variant's accuracy with a confidence interval,
+latency, cost and cost per correct answer, the paired test that compared
+them, and a one-line verdict. With three inputs the verdict will be "Not
+enough data": no difference can be significant with so few examples. Use an
+evaluation set of dozens to hundreds of inputs; `plan_sample_size()` tells
+you how many (see the [A/B testing guide](ab-testing.md#how-many-inputs-do-you-need)).
 
 Use `dry_run=True` to preview estimated cost before spending API credits:
 
@@ -136,19 +147,31 @@ result2 = ExtractUser(text="John is 25").run(model="gpt-4o")  # Instant!
 
 ## Track Usage and Costs
 
-Monitor your API usage:
+Measure the tokens and cost of a block of calls:
 
 ```python
-from flowprompt import get_tracer
+from flowprompt import track_usage
 
-# Run some prompts
+with track_usage() as calls:
+    result = ExtractUser(text="John is 25").run(model="gpt-4o")
+
+print(sum(c.cost_usd or 0 for c in calls), sum(c.total_tokens for c in calls))
+```
+
+Or trace every call in your application:
+
+```python
+from flowprompt import configure_tracer
+
+tracer = configure_tracer(service_name="my-app")  # before running prompts
 result = ExtractUser(text="John is 25").run(model="gpt-4o")
 
-# View statistics
-summary = get_tracer().get_summary()
+summary = tracer.get_summary()
 print(f"Total cost: ${summary['total_cost_usd']:.4f}")
 print(f"Total tokens: {summary['total_tokens']}")
 ```
+
+See [Caching, tracing and cost](observability.md).
 
 ## Load Prompts from Files
 
@@ -193,14 +216,17 @@ Run a prompt:
 flowprompt run prompts/extract_user.yaml --var text="John is 25"
 ```
 
-View statistics:
+Compare prompt variants on a JSONL dataset (and fail CI on a regression):
 
 ```bash
-flowprompt stats
+flowprompt compare variants.py dataset.jsonl --model gpt-4o-mini --metric exact --fail-on-regression
 ```
+
+See [Prompt tests in CI](ci.md).
 
 ## Next Steps
 
+- Read the [A/B testing guide](ab-testing.md) and [Statistical methods](statistics.md)
 - Read the [API Reference](api.md) for detailed documentation
 - Check out the [examples](https://github.com/yotambraun/flowprompt/tree/main/examples) directory
 - Join our [GitHub Discussions](https://github.com/yotambraun/flowprompt/discussions)

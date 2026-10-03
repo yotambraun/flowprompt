@@ -182,10 +182,10 @@ result = compare(
     inputs=[{"text": t} for t in texts],
     expected=labels,
     eval_metric="exact",
-    runs_per_input=3,          # averaged per input, not counted as samples
+    runs_per_input=3,  # averaged per input, not counted as samples
     model="gpt-4o-mini",
 )
-print(result.verdict)          # one plain-English sentence
+print(result.verdict)  # one plain-English sentence
 result.save_report("ab.html")  # or .md for a pull request
 ```
 

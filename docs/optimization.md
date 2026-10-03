@@ -22,6 +22,7 @@ from flowprompt import Prompt
 from flowprompt.optimize import optimize, ExampleDataset, Example, ExactMatch
 from pydantic import BaseModel
 
+
 # Define your prompt
 class ExtractUser(Prompt):
     system = "Extract user information from text."
@@ -31,22 +32,20 @@ class ExtractUser(Prompt):
         name: str
         age: int
 
+
 # Create training examples
-dataset = ExampleDataset([
-    Example(
-        input={"text": "John is 25 years old"},
-        output={"name": "John", "age": 25}
-    ),
-    Example(
-        input={"text": "Alice, age 30"},
-        output={"name": "Alice", "age": 30}
-    ),
-    Example(
-        input={"text": "Bob Smith is 35"},
-        output={"name": "Bob Smith", "age": 35}
-    ),
-    # Add more examples...
-])
+dataset = ExampleDataset(
+    [
+        Example(
+            input={"text": "John is 25 years old"}, output={"name": "John", "age": 25}
+        ),
+        Example(input={"text": "Alice, age 30"}, output={"name": "Alice", "age": 30}),
+        Example(
+            input={"text": "Bob Smith is 35"}, output={"name": "Bob Smith", "age": 35}
+        ),
+        # Add more examples...
+    ]
+)
 
 # Optimize the prompt
 result = optimize(
@@ -54,7 +53,7 @@ result = optimize(
     dataset=dataset,
     metric=ExactMatch(),
     strategy="fewshot",
-    model="gpt-4o"
+    model="gpt-4o",
 )
 
 # Use the optimized prompt
@@ -79,7 +78,7 @@ from flowprompt.optimize import ExactMatch
 
 metric = ExactMatch(
     case_sensitive=True,  # Case-sensitive comparison
-    strip=True           # Strip whitespace before comparing
+    strip=True,  # Strip whitespace before comparing
 )
 
 # Returns 1.0 if prediction exactly matches ground truth, 0.0 otherwise
@@ -96,9 +95,11 @@ from flowprompt.optimize import F1Score
 # Default tokenizer splits on whitespace
 metric = F1Score()
 
+
 # Custom tokenizer
 def custom_tokenizer(text: str) -> list[str]:
     return text.lower().split()
+
 
 metric = F1Score(tokenizer=custom_tokenizer)
 ```
@@ -140,10 +141,7 @@ from flowprompt.optimize import RegexMatch
 import re
 
 # Check for phone number format
-metric = RegexMatch(
-    r"\d{3}-\d{4}",
-    flags=re.IGNORECASE
-)
+metric = RegexMatch(r"\d{3}-\d{4}", flags=re.IGNORECASE)
 ```
 
 ### CustomMetric
@@ -153,9 +151,11 @@ Create your own metrics.
 ```python
 from flowprompt.optimize import CustomMetric
 
+
 def my_metric(predictions, ground_truth):
     correct = sum(p == gt for p, gt in zip(predictions, ground_truth))
     return correct / len(predictions)
+
 
 metric = CustomMetric("my_metric", my_metric)
 ```
@@ -167,10 +167,12 @@ Combine multiple metrics with weights.
 ```python
 from flowprompt.optimize import CompositeMetric, ExactMatch, F1Score
 
-metric = CompositeMetric([
-    (ExactMatch(), 0.6),  # 60% weight on exact matches
-    (F1Score(), 0.4),     # 40% weight on F1 score
-])
+metric = CompositeMetric(
+    [
+        (ExactMatch(), 0.6),  # 60% weight on exact matches
+        (F1Score(), 0.4),  # 40% weight on F1 score
+    ]
+)
 ```
 
 ## Example Management
@@ -184,7 +186,7 @@ from flowprompt.optimize import ExampleDataset, Example
 example = Example(
     input={"text": "John is 25"},
     output={"name": "John", "age": 25},
-    metadata={"source": "training", "difficulty": "easy"}
+    metadata={"source": "training", "difficulty": "easy"},
 )
 
 # Build a dataset
@@ -204,7 +206,7 @@ print(len(dataset))  # Number of examples
 # Split into train and test
 train_data, test_data = dataset.split(
     train_ratio=0.7,
-    seed=42  # For reproducibility
+    seed=42,  # For reproducibility
 )
 
 # Sample random examples
@@ -223,8 +225,8 @@ from flowprompt.optimize import ExampleSelector
 
 selector = ExampleSelector(
     strategy="random",  # or "diverse", "similar", "bootstrap"
-    k=3,               # Number of examples to select
-    seed=42
+    k=3,  # Number of examples to select
+    seed=42,
 )
 
 # Select examples
@@ -254,8 +256,8 @@ from flowprompt.optimize import ExampleBootstrapper
 
 bootstrapper = ExampleBootstrapper(
     min_confidence=0.8,  # Minimum confidence to accept
-    max_examples=100,    # Maximum examples to collect
-    validate_fn=lambda input, output: output.age > 0  # Optional validator
+    max_examples=100,  # Maximum examples to collect
+    validate_fn=lambda input, output: output.age > 0,  # Optional validator
 )
 
 # Record successful executions
@@ -263,7 +265,7 @@ success = bootstrapper.record(
     input_data={"text": "John is 25"},
     output={"name": "John", "age": 25},
     confidence=0.95,
-    metadata={"timestamp": "2024-01-01"}
+    metadata={"timestamp": "2024-01-01"},
 )
 
 # Get collected examples as dataset
@@ -284,14 +286,11 @@ from flowprompt.optimize import FewShotOptimizer
 
 optimizer = FewShotOptimizer(
     num_examples=3,
-    selection_strategy="bootstrap"  # Best performing examples
+    selection_strategy="bootstrap",  # Best performing examples
 )
 
 result = optimizer.optimize(
-    prompt_class=ExtractUser,
-    dataset=dataset,
-    metric=ExactMatch(),
-    model="gpt-4o"
+    prompt_class=ExtractUser, dataset=dataset, metric=ExactMatch(), model="gpt-4o"
 )
 ```
 
@@ -306,14 +305,14 @@ from flowprompt.optimize import InstructionOptimizer
 
 optimizer = InstructionOptimizer(
     optimizer_model="gpt-4o",  # Model for generating improvements
-    num_candidates=5           # Candidates per iteration
+    num_candidates=5,  # Candidates per iteration
 )
 
 result = optimizer.optimize(
     prompt_class=ExtractUser,
     dataset=dataset,
     metric=ExactMatch(),
-    model="gpt-4o-mini"  # Model for evaluation
+    model="gpt-4o-mini",  # Model for evaluation
 )
 ```
 
@@ -327,21 +326,20 @@ Hyperparameter search using Optuna (requires `optuna` package).
 from flowprompt.optimize import OptunaOptimizer
 
 optimizer = OptunaOptimizer(
-    n_trials=50,      # Number of trials
-    timeout=600       # Timeout in seconds (optional)
+    n_trials=50,  # Number of trials
+    timeout=600,  # Timeout in seconds (optional)
 )
 
 result = optimizer.optimize(
-    prompt_class=ExtractUser,
-    dataset=dataset,
-    metric=ExactMatch(),
-    model="gpt-4o"
+    prompt_class=ExtractUser, dataset=dataset, metric=ExactMatch(), model="gpt-4o"
 )
 
 # View optimization history
 for trial in result.history:
-    print(f"Trial {trial['trial']}: score={trial['score']:.4f}, "
-          f"temp={trial['temperature']:.2f}, examples={trial['num_examples']}")
+    print(
+        f"Trial {trial['trial']}: score={trial['score']:.4f}, "
+        f"temp={trial['temperature']:.2f}, examples={trial['num_examples']}"
+    )
 ```
 
 Optimizes temperature, few-shot example count, and other hyperparameters.
@@ -356,14 +354,14 @@ from flowprompt.optimize import BootstrapOptimizer
 optimizer = BootstrapOptimizer(
     bootstrap_rounds=3,
     confidence_threshold=0.8,
-    validator_fn=lambda input, output: output["age"] > 0
+    validator_fn=lambda input, output: output["age"] > 0,
 )
 
 result = optimizer.optimize(
     prompt_class=ExtractUser,
     dataset=dataset,  # Can include unlabeled data
     metric=ExactMatch(),
-    model="gpt-4o"
+    model="gpt-4o",
 )
 ```
 
@@ -379,22 +377,18 @@ Fine-tune the optimization process:
 from flowprompt.optimize import optimize, OptimizationConfig
 
 config = OptimizationConfig(
-    max_iterations=10,              # Maximum optimization iterations
-    num_candidates=5,                # Candidates per iteration
-    train_size=20,                   # Training examples per iteration
-    eval_size=50,                    # Evaluation examples
-    temperature_range=(0.0, 0.7),    # Temperature range to explore
-    seed=42,                         # Random seed
-    early_stopping_patience=3,       # Stop after N iterations without improvement
-    early_stopping_threshold=0.01    # Minimum improvement threshold
+    max_iterations=10,  # Maximum optimization iterations
+    num_candidates=5,  # Candidates per iteration
+    train_size=20,  # Training examples per iteration
+    eval_size=50,  # Evaluation examples
+    temperature_range=(0.0, 0.7),  # Temperature range to explore
+    seed=42,  # Random seed
+    early_stopping_patience=3,  # Stop after N iterations without improvement
+    early_stopping_threshold=0.01,  # Minimum improvement threshold
 )
 
 result = optimize(
-    ExtractUser,
-    dataset=dataset,
-    metric=ExactMatch(),
-    strategy="fewshot",
-    config=config
+    ExtractUser, dataset=dataset, metric=ExactMatch(), strategy="fewshot", config=config
 )
 ```
 
@@ -429,16 +423,22 @@ print(result.summary())
 Include a variety of examples covering different patterns and edge cases:
 
 ```python
-dataset = ExampleDataset([
-    # Different formats
-    Example(input={"text": "John is 25"}, output={"name": "John", "age": 25}),
-    Example(input={"text": "Alice, 30 years old"}, output={"name": "Alice", "age": 30}),
-    Example(input={"text": "Bob Smith (age: 35)"}, output={"name": "Bob Smith", "age": 35}),
-
-    # Edge cases
-    Example(input={"text": "Jane"}, output={"name": "Jane", "age": None}),
-    Example(input={"text": "No data here"}, output={"name": "", "age": None}),
-])
+dataset = ExampleDataset(
+    [
+        # Different formats
+        Example(input={"text": "John is 25"}, output={"name": "John", "age": 25}),
+        Example(
+            input={"text": "Alice, 30 years old"}, output={"name": "Alice", "age": 30}
+        ),
+        Example(
+            input={"text": "Bob Smith (age: 35)"},
+            output={"name": "Bob Smith", "age": 35},
+        ),
+        # Edge cases
+        Example(input={"text": "Jane"}, output={"name": "Jane", "age": None}),
+        Example(input={"text": "No data here"}, output={"name": "", "age": None}),
+    ]
+)
 ```
 
 ### 2. Choose the Right Metric
@@ -475,7 +475,7 @@ result = optimize(
     ExtractUser,
     dataset=train_data,  # Only training data
     metric=ExactMatch(),
-    strategy="fewshot"
+    strategy="fewshot",
 )
 
 # Evaluate on test data
@@ -533,7 +533,9 @@ Optimization is iterative. Use insights from one run to improve the next:
 result1 = optimize(ExtractUser, dataset, ExactMatch(), strategy="fewshot")
 
 # Round 2: Refine instructions based on errors
-result2 = optimize(result1.best_prompt_class, dataset, ExactMatch(), strategy="instruction")
+result2 = optimize(
+    result1.best_prompt_class, dataset, ExactMatch(), strategy="instruction"
+)
 
 # Round 3: Final hyperparameter tuning
 result3 = optimize(result2.best_prompt_class, dataset, ExactMatch(), strategy="optuna")
@@ -601,11 +603,11 @@ with ProcessPoolExecutor() as executor:
 
 # Compare results
 for i, result in enumerate(results):
-    print(f"Prompt {i+1}: {result.best_score:.2%}")
+    print(f"Prompt {i + 1}: {result.best_score:.2%}")
 ```
 
 ## Next Steps
 
 - Learn about [A/B Testing](ab-testing.md) to compare optimized prompts in production
 - Check the [API Reference](api.md) for detailed documentation
-- See [Examples](../examples/) for more optimization patterns
+- See [Examples](https://github.com/yotambraun/flowprompt/tree/main/examples) for more optimization patterns
