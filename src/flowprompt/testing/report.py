@@ -105,7 +105,8 @@ def _money(value: float | None, known: bool = True) -> str:
     if value == 0:
         return "$0"
     if value < 0.01:
-        return f"${value:.5f}"
+        decimals = min(10, -math.floor(math.log10(value)) + 1)
+        return f"${value:.{decimals}f}"
     return f"${value:.4f}" if value < 1 else f"${value:,.2f}"
 
 
@@ -376,22 +377,22 @@ def render_text(result: ComparisonResult) -> str:
         lines.append(base)
         crow: list[list[str]] = []
         for c in result.comparisons:
-            crow.append(
-                [
-                    f"{c.treatment} vs {c.control}",
-                    _diff(result, c.difference),
-                    _ci(result, c),
-                    _p(c.p_value),
-                    _p(c.adjusted_p) if c.adjusted_p is not None else "-",
-                    "significant" if c.significant else "not significant",
-                ]
-            )
+            row = [
+                f"{c.treatment} vs {c.control}",
+                _diff(result, c.difference),
+                _ci(result, c),
+                _p(c.p_value),
+            ]
+            if result.correction:
+                row.append(_p(c.adjusted_p))
+            row.append("significant" if c.significant else "not significant")
+            crow.append(row)
+        heads = ["Comparison", "Difference", ci_head, "p"]
+        if result.correction:
+            heads.append("Holm p")
+        heads.append("Result")
         lines.extend(
-            _table(
-                ["Comparison", "Difference", ci_head, "p", "Holm p", "Result"],
-                crow,
-                "lrrrrl",
-            )
+            _table(heads, crow, "lrrr" + ("r" if result.correction else "") + "l")
         )
 
     lines.append("")
