@@ -106,6 +106,7 @@ from flowprompt.testing.eval_metrics import (
     exact_match,
     similarity_match,
 )
+from flowprompt.testing.paired import SampleSizePlan, plan_sample_size
 
 # Tracing
 from flowprompt.tracing.otel import (
@@ -147,6 +148,8 @@ __all__ = [
     "compare",
     "acompare",
     "estimate_compare_cost",
+    "plan_sample_size",
+    "SampleSizePlan",
     "ComparisonResult",
     "PromptTestResult",
     "exact_match",

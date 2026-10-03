@@ -215,8 +215,8 @@ class TestComparisonResultOutput:
 
         text = str(result)
         assert "Comparison Results" in text
-        assert "a:" in text
-        assert "b:" in text
+        assert "\n  a " in text
+        assert "\n  b " in text
 
     def test_to_dict(self) -> None:
         with patch.object(Prompt, "run", return_value="ok"):

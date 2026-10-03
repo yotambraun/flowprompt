@@ -41,9 +41,15 @@ class PromptTestResult:
 
     @property
     def p_value(self) -> float | None:
-        """P-value from the significance test, or ``None``."""
+        """P-value from the significance test, or ``None``.
+
+        When several variants were compared this is the Holm-adjusted
+        p-value of the deciding comparison.
+        """
         sr = self.result.statistical_result
-        return sr.p_value if sr is not None else None
+        if sr is None:
+            return None
+        return sr.adjusted_p if sr.adjusted_p is not None else sr.p_value
 
     # ------------------------------------------------------------------
     # Assertion helpers
@@ -64,9 +70,11 @@ class PromptTestResult:
         if sr is None:
             pytest.fail("No statistical result available (too few samples?)")
 
-        if sr.p_value > threshold:
+        p = sr.adjusted_p if sr.adjusted_p is not None else sr.p_value
+        if p > threshold:
+            label = "adjusted p" if sr.adjusted_p is not None else "p"
             lines = [
-                f"Result not significant: p={sr.p_value:.4f} > {threshold}",
+                f"Result not significant: {label}={p:.4f} > {threshold}",
                 "",
                 "Variant breakdown:",
             ]
@@ -75,6 +83,9 @@ class PromptTestResult:
                 lines.append(
                     f"  {name}: {v.success_rate:.0%} success, {v.samples} runs{marker}"
                 )
+            verdict = getattr(self.result, "verdict", None)
+            if self.result.variants and verdict:
+                lines.extend(["", f"Verdict: {verdict}"])
             pytest.fail("\n".join(lines))
 
     def assert_winner(self, expected: str) -> None:

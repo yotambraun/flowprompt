@@ -37,6 +37,7 @@ Example:
     >>> print(summary.summary_text())
 """
 
+from flowprompt.testing import scorers
 from flowprompt.testing.allocation import (
     EpsilonGreedyAllocator,
     RandomAllocator,
@@ -50,6 +51,7 @@ from flowprompt.testing.allocation import (
 from flowprompt.testing.assertions import PromptTestResult
 from flowprompt.testing.compare import (
     ComparisonResult,
+    RunRecord,
     VariantResult,
     acompare,
     compare,
@@ -70,6 +72,19 @@ from flowprompt.testing.experiment import (
     VariantConfig,
     VariantStats,
 )
+from flowprompt.testing.fake_llm import FakeLLM
+from flowprompt.testing.paired import (
+    SampleSizePlan,
+    SequentialMcNemar,
+    agresti_min_interval,
+    holm_adjust,
+    mcnemar_exact,
+    paired_bootstrap_interval,
+    paired_sign_flip_test,
+    paired_test,
+    plan_sample_size,
+    wilson_interval,
+)
 from flowprompt.testing.runner import (
     ABTestRunner,
     ExperimentSummary,
@@ -82,6 +97,12 @@ from flowprompt.testing.statistics import (
     run_significance_test,
     t_test_means,
     two_proportion_z_test,
+)
+from flowprompt.testing.variants import (
+    FunctionVariant,
+    PromptVariant,
+    as_variant,
+    model_variants,
 )
 
 __all__ = [
@@ -109,12 +130,32 @@ __all__ = [
     "t_test_means",
     "bayesian_ab_test",
     "run_significance_test",
+    # Paired statistics (used by compare)
+    "paired_test",
+    "mcnemar_exact",
+    "paired_sign_flip_test",
+    "paired_bootstrap_interval",
+    "agresti_min_interval",
+    "wilson_interval",
+    "holm_adjust",
+    "plan_sample_size",
+    "SampleSizePlan",
+    "SequentialMcNemar",
     # Comparison
     "compare",
     "acompare",
     "estimate_compare_cost",
     "ComparisonResult",
     "VariantResult",
+    "RunRecord",
+    # Variants & scorers
+    "PromptVariant",
+    "FunctionVariant",
+    "as_variant",
+    "model_variants",
+    "scorers",
+    # Offline testing
+    "FakeLLM",
     # Runner
     "ABTestRunner",
     "ExperimentSummary",
