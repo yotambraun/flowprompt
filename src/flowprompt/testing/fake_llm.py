@@ -20,6 +20,7 @@ token), so cost accounting works for models with a known price.
 
 from __future__ import annotations
 
+import inspect
 import json
 import threading
 from collections.abc import Callable, Iterator
@@ -28,7 +29,7 @@ from typing import Any
 
 __all__ = ["FakeLLM"]
 
-Responder = Callable[[list[dict[str, Any]]], Any]
+Responder = Callable[..., Any]
 
 
 def _example_from_schema(
@@ -90,6 +91,19 @@ def _schema_from_request(
     return None
 
 
+def _accepts_two_args(fn: Callable[..., Any]) -> bool:
+    try:
+        params = list(inspect.signature(fn).parameters.values())
+    except (TypeError, ValueError):
+        return False
+    if any(p.kind is p.VAR_POSITIONAL for p in params):
+        return True
+    positional = [
+        p for p in params if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
+    ]
+    return len(positional) >= 2
+
+
 def _tokens(text: str) -> int:
     return max(1, len(text) // 4)
 
@@ -99,10 +113,12 @@ class FakeLLM:
 
     Args:
         responder: Produces the reply. Either a string (always returned), or
-            a callable receiving the list of chat messages and returning a
-            string, a dict / pydantic model (serialised to JSON), or None to
-            use the default reply. Defaults to echoing the last user message,
-            or schema-shaped JSON for structured prompts.
+            a callable receiving the list of chat messages (and, if it accepts
+            a second argument, the full request as a dict, e.g. to check
+            ``request["model"]`` or ``request["response_format"]``) and
+            returning a string, a dict / pydantic model (serialised to JSON),
+            or None to use the default reply. Defaults to echoing the last
+            user message, or schema-shaped JSON for structured prompts.
         latency_s: Optional artificial delay per call, in seconds.
 
     Attributes:
@@ -116,6 +132,7 @@ class FakeLLM:
         latency_s: float = 0.0,
     ) -> None:
         self._responder = responder
+        self._wants_request = callable(responder) and _accepts_two_args(responder)
         self._latency_s = latency_s
         self.calls: list[dict[str, Any]] = []
         self._lock = threading.Lock()
@@ -128,7 +145,10 @@ class FakeLLM:
         if isinstance(self._responder, str):
             value = self._responder
         elif callable(self._responder):
-            value = self._responder(messages)
+            if self._wants_request:
+                value = self._responder(messages, kwargs)  # type: ignore[call-arg]
+            else:
+                value = self._responder(messages)
         if value is None:
             schema = _schema_from_request(messages, kwargs.get("response_format"))
             if schema is not None:
