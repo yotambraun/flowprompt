@@ -473,14 +473,14 @@ class ABTestRunner:
         if control and len(stats) >= 2:
             control_stats = stats.get(control.name)
 
-            # Compare each treatment to control
-            best_treatment = None
-            best_effect = 0.0
-
+            # Compare each treatment to control. Live traffic assigns
+            # different requests to different variants, so the samples are
+            # independent and the unpaired tests apply. With several
+            # treatments the p-values are Holm-adjusted.
+            results: list[tuple[str, StatisticalResult]] = []
             for name, treatment_stats in stats.items():
                 if name == control.name:
                     continue
-
                 if control_stats and treatment_stats:
                     result = run_significance_test(
                         control_stats,
@@ -488,14 +488,48 @@ class ABTestRunner:
                         test_type=test_type,
                         confidence_level=config.confidence_level,
                     )
+                    if test_type == "t_test":
+                        diff = treatment_stats.mean_metric - control_stats.mean_metric
+                    else:
+                        diff = treatment_stats.success_rate - control_stats.success_rate
+                    result.difference = diff
+                    result.control, result.treatment = control.name, name
+                    results.append((name, result))
 
-                    if result.significant and result.effect_size > best_effect:
-                        best_effect = result.effect_size
-                        best_treatment = name
-                        statistical_result = result
+            if len(results) > 1:
+                from flowprompt.testing.paired import holm_adjust
 
-            if best_treatment:
-                winner = config.get_variant(best_treatment)
+                adjusted = holm_adjust([r.p_value for _, r in results])
+                alpha = 1 - config.confidence_level
+                for (_, r), adj in zip(results, adjusted, strict=True):
+                    r.adjusted_p = adj
+                    r.significant = adj < alpha
+
+            better = [
+                (n, r) for n, r in results if r.significant and (r.difference or 0) > 0
+            ]
+            worse = [
+                (n, r) for n, r in results if r.significant and (r.difference or 0) < 0
+            ]
+            if better:
+                best_name, statistical_result = max(
+                    better, key=lambda item: item[1].difference or 0.0
+                )
+                winner = config.get_variant(best_name)
+            elif results and len(worse) == len(results):
+                _, statistical_result = min(
+                    worse, key=lambda item: abs(item[1].difference or 0.0)
+                )
+                winner = control
+            elif results:
+                _, statistical_result = min(
+                    results,
+                    key=lambda item: (
+                        item[1].adjusted_p
+                        if item[1].adjusted_p is not None
+                        else item[1].p_value
+                    ),
+                )
 
             # Generate recommendations
             if total_samples < config.min_samples:
@@ -538,25 +572,15 @@ class ABTestRunner:
             self.complete_experiment(experiment_id)
             return
 
-        # Check for early stopping (significant result with enough samples)
+        # Check for early stopping (significant result with enough samples).
+        # Note: testing after every result once min_samples is reached is
+        # "peeking" and raises the false-positive rate above alpha. Set
+        # min_samples to the planned sample size (see plan_sample_size) or
+        # use max_samples for a fixed-horizon test.
         if total_samples >= config.min_samples:
-            control = config.get_control()
-            if control:
-                control_stats = stats.get(control.name)
-                for name, treatment_stats in stats.items():
-                    if name == control.name:
-                        continue
-                    if control_stats and treatment_stats:
-                        result = run_significance_test(
-                            control_stats,
-                            treatment_stats,
-                            confidence_level=config.confidence_level,
-                        )
-                        if result.significant:
-                            # Winner determined
-                            winner = name if result.effect_size > 0 else control.name
-                            self.complete_experiment(experiment_id, winner=winner)
-                            return
+            summary = self.get_summary(experiment_id)
+            if summary.winner is not None:
+                self.complete_experiment(experiment_id, winner=summary.winner.name)
 
 
 def create_simple_experiment(
