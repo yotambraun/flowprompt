@@ -45,6 +45,37 @@ uv run pytest tests/test_core/test_prompt.py
 
 # Run with verbose output
 uv run pytest -v
+
+# Run every example and the README code offline (no API key needed)
+uv run python scripts/run_examples.py
+uv run pytest tests/test_docs_examples.py --no-cov
+```
+
+Tests never call a real LLM. Use `flowprompt.testing.FakeLLM` (or mock
+`litellm.completion`) for anything that would. Python blocks in `README.md`
+are executed by the test suite; mark an intentional fragment with
+`<!-- not-run -->` on the line before the code fence.
+
+### Statistics changes
+
+Changes to `flowprompt/testing/paired.py`, `compare.py` or `statistics.py`
+need known-answer tests (hand-computed p-values or intervals) and, where it
+applies, a calibration check by simulation (see `tests/test_testing/test_paired.py`).
+If behaviour changes, rerun the false-winner study and update
+`docs/false-winners.md`:
+
+```bash
+uv run python benchmarks/false_winners.py --quick   # smoke run, ~10 s
+uv run python benchmarks/false_winners.py           # full study, ~6 min
+uv run python benchmarks/plot_false_winners.py      # redraw docs/assets charts
+```
+
+### Documentation
+
+```bash
+uv sync --group docs
+uv run mkdocs serve             # live preview at http://127.0.0.1:8000
+uv run mkdocs build --strict    # what CI runs
 ```
 
 ### Code Quality
@@ -58,7 +89,7 @@ uv run ruff check .
 # Auto-fix linting issues
 uv run ruff check --fix .
 
-# Format code
+# Format code (also formats Python blocks in Markdown files)
 uv run ruff format .
 
 # Type checking with mypy
@@ -143,8 +174,10 @@ flowprompt/
 │   ├── storage/          # YAML/JSON prompt loading
 │   └── cli/              # Command-line interface
 ├── tests/                # Test suite
-├── examples/             # Usage examples
-└── docs/                 # Documentation
+├── examples/             # Usage examples (run offline in CI)
+├── scripts/              # Developer scripts (run_examples.py)
+├── benchmarks/           # Reproducible studies (false_winners.py)
+└── docs/                 # Documentation (MkDocs site, mkdocs.yml)
 ```
 
 ## Adding New Features
