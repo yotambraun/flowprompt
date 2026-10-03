@@ -46,10 +46,14 @@ Optimization (NEW in v0.2.0):
     >>> dataset = ExampleDataset([Example(input={"text": "John is 25"}, output="John, 25")])
     >>> result = optimize(MyPrompt, dataset=dataset, metric=ExactMatch())
 
-Prompt Comparison (NEW in v0.3.0):
+Prompt Comparison (paired significance tests):
     >>> from flowprompt import compare
-    >>> result = compare({"v1": PromptV1, "v2": PromptV2}, inputs=[{"text": "hi"}])
-    >>> print(result)
+    >>> result = compare(
+    ...     {"v1": PromptV1, "v2": PromptV2},
+    ...     inputs=[{"text": t} for t in texts],
+    ...     expected=labels,
+    ... )
+    >>> print(result.verdict)
 
 A/B Testing:
     >>> from flowprompt.testing import ABTestRunner, create_simple_experiment
@@ -61,7 +65,7 @@ Multimodal (NEW in v0.2.0):
     >>> result = VisionPrompt.describe("image.jpg").run(model="gpt-4o")
 """
 
-__version__ = "0.3.0"
+__version__ = "0.5.0"
 
 # Core
 # Caching

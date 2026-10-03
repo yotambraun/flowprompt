@@ -8,10 +8,124 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
+- Always-valid (sequential) tests for live-traffic experiments
 - Redis cache backend
 - Langfuse integration
 
+## [0.5.0] - Unreleased
+
+This release makes `compare()` statistically sound and fixes the crash that
+broke the README quickstart and every example. **If you
+used `compare()` before, re-check conclusions drawn from it**: the old
+analysis could report significant differences that were not there (see
+Fixed), and results now change accordingly.
+
+### Fixed
+- **Prompts defined as in the README crashed.** `class MyPrompt(Prompt):
+  system = "..."` (no type annotation) raised `PydanticUserError: Field
+  'system' defined on a base class was overridden by a non-annotated
+  attribute` on every Pydantic 2 release we tested (2.0.3 through 2.13.5),
+  so the quickstart and all examples failed; the test suite only used
+  annotated fields and did not catch it. Unannotated overrides of prompt fields now work on Pydantic 2.0
+  through 2.13 and Python 3.10 through 3.14; annotated definitions are
+  unchanged.
+- **`compare()` p-values ignored that variants share inputs.** Every variant
+  runs on the same inputs, but results were tested with an unpaired pooled
+  z-test. Pass/fail results now use the exact McNemar test. Example: 8/10
+  versus 4/10 correct, with the four disagreements all favouring the first
+  prompt, gives p = 0.125 (previously reported as 0.068).
+- **Repeated runs were counted as extra samples.** With `runs_per_input=5`
+  and deterministic outputs, the p-value for the example above dropped from
+  0.068 to below 0.0001 without any new information. Runs are now averaged
+  per input; the number of inputs is the sample size.
+- **Wrong winner when the control scored 0.** The winner was chosen by the
+  relative lift, which is undefined (and was set to 0) when the control
+  scores 0, so a significantly better treatment lost. Winners now follow
+  the sign of the absolute difference. The same bug in `ABTestRunner`
+  (summary and auto-completion) is fixed too.
+- **No correction for multiple comparisons.** With three or more variants,
+  p-values are now Holm-adjusted before a winner is named, in `compare()`
+  and in `ABTestRunner`.
+- **Comparisons without expected outputs** reported a failed test ("Zero
+  standard error"). They now say plainly that outputs were not graded and
+  compare error rates only (`has_ground_truth=False`).
+- **Caching, tracing and cost tracking were not connected to `run()`.** Two
+  identical calls made two LLM calls, the tracer recorded nothing and
+  `compare()` reported $0.00. `configure_cache()` now serves identical
+  requests from the cache, a configured tracer records every call, and
+  token usage and cost are taken from the provider response.
+- **YAML prompts with an `output_schema`** failed with
+  `PydanticSchemaGenerationError`. Output models are now built with
+  `pydantic.create_model` (enums, nested objects, typed arrays, required
+  fields).
+
+### Changed
+- **`compare()` uses paired tests by default** (`test_type="auto"`): the
+  exact McNemar test for pass/fail with one run per input, otherwise a
+  paired sign-flip permutation test with a bootstrap confidence interval.
+  Expect larger, honest p-values on small evaluation sets; with fewer than
+  six inputs no difference can be significant, and the result says so.
+- `StatisticalResult.effect_size` from `compare()` is the absolute
+  difference (0.12 = 12 accuracy points); the relative lift moved to
+  `relative_lift` (None when undefined). The unpaired tests keep their old
+  meaning.
+- `test_type="z_test"`, `"chi_squared"`, `"t_test"` and `"bayesian"` still
+  work with `compare()` but emit a `DeprecationWarning`.
+- `print(result)` shows a report: accuracy with confidence intervals,
+  latency (mean and p95), cost and cost per correct answer, each paired
+  comparison with its interval and adjusted p-value, and a one-line verdict.
+- `PromptTestResult.assert_significant()` and `.p_value` use the
+  Holm-adjusted p-value when several variants were compared.
+- The cache is only used after `configure_cache()`; `get_cache()` alone
+  does not turn it on.
+
+### Added
+- Variants can be any callable `fn(input) -> output` (sync or async),
+  `(PromptClass, "model")` tuples, `PromptVariant` or
+  `model_variants(Prompt, [...])`, so models and pipelines can be compared,
+  not only prompts.
+- Scorers: `exact`, `contains`, `regex`, `numeric` (with tolerances),
+  `similarity`, or any function returning a bool or a score
+  (`flowprompt.testing.scorers`).
+- `ComparisonResult`: `comparisons`, `verdict`, `enough_data`, `notes`,
+  `to_markdown()`, `to_html()` (self-contained, light and dark),
+  `save_report()`, `sample_size_plan()`; `StatisticalResult` gains
+  `method`, `difference`, `ci_low`, `ci_high`, `n_inputs`, `adjusted_p`,
+  `relative_lift`, `control`, `treatment`.
+- `plan_sample_size()`: inputs needed for a given difference and power
+  (Connor 1987 for paired pass/fail outcomes), with a cost estimate when a
+  price is known.
+- `SequentialMcNemar`: an always-valid paired test for stopping early
+  without inflating false positives.
+- Statistics helpers: `paired_test`, `mcnemar_exact` (with mid-p),
+  `paired_sign_flip_test`, `paired_bootstrap_interval`,
+  `agresti_min_interval`, `wilson_interval`, `holm_adjust`.
+- `track_usage()` and `CallUsage` for per-call tokens, cost, latency and
+  cache hits.
+- `FakeLLM`: answers LLM calls offline and deterministically for tests,
+  CI and demos.
+- `flowprompt compare VARIANTS.py DATASET.jsonl` with Markdown, HTML and
+  JSON reports and `--fail-on-regression` for CI.
+- `compare(control=..., comparisons="all")` to choose the baseline or test
+  every pair.
+- Documentation site (MkDocs Material), pages on CI, statistical methods
+  and observability, and a simulation study:
+  [Your prompt A/B test is probably lying to you](docs/false-winners.md)
+  (`benchmarks/false_winners.py`).
+- CI runs every example and the README offline, and tests prompt
+  definitions on Pydantic 2.0, 2.9 and the latest 2.x.
+
+### Removed
+- README claims that could not be verified: "<100ms import" (importing
+  `flowprompt` takes about 0.15 s; litellm, about 2 s, loads on the first
+  call), "the only Python LLM framework with built-in A/B testing", and the
+  unverified comparison table.
+
 ## [0.4.0] - 2026-03-20
+
+> **Not published to PyPI.** This version was tagged on GitHub, but the
+> package version in the source was still 0.3.0, so the PyPI upload could
+> not succeed. Everything listed here ships in 0.5.0.
 
 ### Added
 - **`expected` parameter for `compare()` and `acompare()`**: Ground-truth evaluation for prompt outputs
