@@ -21,6 +21,16 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Check that the tag matches the package version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)
+          init=$(grep -m1 '^__version__ = ' src/flowprompt/__init__.py | cut -d'"' -f2)
+          if [ "$tag" != "$pkg" ] || [ "$tag" != "$init" ]; then
+            echo "Tag v$tag does not match pyproject ($pkg) / __version__ ($init)."
+            exit 1
+          fi
+
       - name: Install dependencies
         run: |
           uv venv
