@@ -110,7 +110,7 @@ Fixed), and results now change accordingly.
   every pair.
 - Documentation site (MkDocs Material), pages on CI, statistical methods
   and observability, and a simulation study:
-  [Your prompt A/B test is probably lying to you](docs/false-winners.md)
+  [Your prompt A/B test is probably lying to you](https://github.com/yotambraun/flowprompt/blob/main/docs/false-winners.md)
   (`benchmarks/false_winners.py`).
 - CI runs every example and the README offline, and tests prompt
   definitions on Pydantic 2.0, 2.9 and the latest 2.x.
