@@ -11,10 +11,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, create_model
 from pydantic import Field as PydanticField
 
 from flowprompt.core.prompt import Prompt
@@ -86,6 +86,8 @@ class PromptConfig(BaseModel):
         """
         # Build class attributes
         class_attrs: dict[str, Any] = {
+            "__module__": __name__,
+            "__qualname__": self.name,
             "__version__": self.version,
             "__doc__": self.description,
             "system": self.system,
@@ -96,42 +98,77 @@ class PromptConfig(BaseModel):
         if self.output_schema:
             # Create a Pydantic model from JSON schema
             output_class = self._schema_to_model(self.output_schema)
+            # Present it as a nested class (``<Name>.Output``) so pydantic does
+            # not mistake it for an unannotated field.
+            output_class.__module__ = __name__
+            output_class.__qualname__ = f"{self.name}.Output"
             class_attrs["Output"] = output_class
-            class_attrs["_output_model"] = output_class
 
         # Create the class dynamically
         prompt_class = type(self.name, (Prompt,), class_attrs)
         return cast(type[Prompt[Any]], prompt_class)
 
-    def _schema_to_model(self, schema: dict[str, Any]) -> type[BaseModel]:
-        """Convert a JSON schema to a Pydantic model."""
+    def _schema_to_model(
+        self, schema: dict[str, Any], name: str = "Output"
+    ) -> type[BaseModel]:
+        """Convert a JSON schema (object) to a Pydantic model.
+
+        Supports the common subset used for structured LLM output: scalar
+        types, ``enum``, nested objects, ``array`` with ``items``, nullable
+        types, ``required`` and ``description``.
+        """
         properties = schema.get("properties", {})
         required = set(schema.get("required", []))
 
-        # Build field definitions
         field_definitions: dict[str, Any] = {}
-        for name, prop in properties.items():
-            field_type = self._json_type_to_python(prop.get("type", "string"))
-            default = ... if name in required else None
-            description = prop.get("description", "")
-            field_definitions[name] = (
-                field_type,
-                PydanticField(default=default, description=description),
+        for field_name, prop in properties.items():
+            field_type = self._json_type_to_python(prop, f"{name}_{field_name}")
+            description = prop.get("description") or None
+            if field_name in required:
+                field_definitions[field_name] = (
+                    field_type,
+                    PydanticField(..., description=description),
+                )
+            else:
+                field_definitions[field_name] = (
+                    field_type | None,
+                    PydanticField(prop.get("default"), description=description),
+                )
+
+        model = create_model(name, **field_definitions)
+        if schema.get("description"):
+            model.__doc__ = schema["description"]
+        return model
+
+    def _json_type_to_python(
+        self, prop: dict[str, Any] | str, name: str = "Nested"
+    ) -> Any:
+        """Convert a JSON schema property to a Python type annotation."""
+        if isinstance(prop, str):
+            prop = {"type": prop}
+        if "enum" in prop and prop["enum"]:
+            return Literal[tuple(prop["enum"])]
+        json_type = prop.get("type", "string")
+        if isinstance(json_type, list):
+            options = [t for t in json_type if t != "null"]
+            inner = self._json_type_to_python(
+                {**prop, "type": options[0] if options else "string"}, name
             )
-
-        # Create model dynamically
-        model = type("Output", (BaseModel,), {"__annotations__": field_definitions})
-        return cast(type[BaseModel], model)
-
-    def _json_type_to_python(self, json_type: str) -> type:
-        """Convert JSON schema type to Python type."""
-        type_map = {
+            return inner | None if "null" in json_type else inner
+        if json_type == "object" and prop.get("properties"):
+            return self._schema_to_model(prop, name.title().replace("_", ""))
+        if json_type == "array":
+            items = prop.get("items")
+            if isinstance(items, dict):
+                return list[self._json_type_to_python(items, name + "_item")]  # type: ignore[misc]
+            return list[Any]
+        type_map: dict[str, Any] = {
             "string": str,
             "integer": int,
             "number": float,
             "boolean": bool,
-            "array": list,
-            "object": dict,
+            "object": dict[str, Any],
+            "null": type(None),
         }
         return type_map.get(json_type, str)
 
