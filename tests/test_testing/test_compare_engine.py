@@ -428,3 +428,37 @@ def test_note_when_several_treatments_beat_control() -> None:
     )
     assert result.winner == "good"
     assert any("sloppy also beat bad" in n for n in result.notes)
+
+
+def test_tiny_p_values_read_naturally() -> None:
+    inputs = [{"q": i} for i in range(30)]
+    answers = [str(i * 2) for i in range(30)]
+    result = compare(
+        {"good": doubler, "bad": lambda _inp: "?"},
+        inputs=inputs,
+        expected=answers,
+        eval_metric="exact",
+    )
+    assert "p<0.0001" in result.verdict
+    assert "p=<" not in str(result)
+
+
+def test_fake_llm_responder_can_see_the_request() -> None:
+    class Out(BaseModel):
+        label: str
+
+    class Structured(Prompt[Any]):
+        system: str = "Label it."
+        user: str = "{q}"
+
+        class Output(BaseModel):
+            label: str
+
+    def responder(_messages: list[dict[str, Any]], request: dict[str, Any]) -> Any:
+        if request.get("response_format"):
+            return {"label": request["model"]}
+        return "plain"
+
+    with FakeLLM(responder):
+        assert Structured(q=1).run(model="gpt-4o-mini").label == "gpt-4o-mini"
+        assert Echo(q=1).run(model="gpt-4o-mini") == "plain"

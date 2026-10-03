@@ -134,9 +134,13 @@ def _ci_plain(result: ComparisonResult, sr: StatisticalResult, sign: float) -> s
 
 
 def _p_phrase(sr: StatisticalResult) -> str:
-    if sr.adjusted_p is not None:
-        return f"adjusted p={_p(sr.adjusted_p)}"
-    return f"p={_p(sr.p_value)}"
+    label, value = (
+        ("adjusted p", sr.adjusted_p)
+        if sr.adjusted_p is not None
+        else ("p", sr.p_value)
+    )
+    text = _p(value)
+    return f"{label}{text}" if text.startswith("<") else f"{label}={text}"
 
 
 def method_text(result: ComparisonResult) -> str:
