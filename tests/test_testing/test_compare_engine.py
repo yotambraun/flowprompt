@@ -412,3 +412,19 @@ def test_repeated_runs_note_and_unit_of_analysis() -> None:
     assert result.total_runs == 72
     assert result.statistical_result.n_inputs == 12
     assert any("averaged per input" in n for n in result.notes)
+
+
+def test_note_when_several_treatments_beat_control() -> None:
+    def wrong(_inp: dict[str, Any]) -> str:
+        return "?"
+
+    inputs = [{"q": i} for i in range(20)]
+    answers = [str(i * 2) for i in range(20)]
+    result = compare(
+        {"bad": wrong, "good": doubler, "sloppy": off_by_one_on_odd},
+        inputs=inputs,
+        expected=answers,
+        eval_metric="exact",
+    )
+    assert result.winner == "good"
+    assert any("sloppy also beat bad" in n for n in result.notes)
