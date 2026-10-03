@@ -34,7 +34,11 @@ def _annotate_inherited_field_overrides(
     inherited: dict[str, Any] = {}
     for base in bases:
         for klass in reversed(base.__mro__):
+            # pydantic >= 2.10 stores fields in __pydantic_fields__,
+            # older 2.x releases in model_fields.
             fields = klass.__dict__.get("__pydantic_fields__")
+            if not isinstance(fields, dict):
+                fields = klass.__dict__.get("model_fields")
             if isinstance(fields, dict):
                 for field_name, info in fields.items():
                     inherited[field_name] = info.annotation
