@@ -118,7 +118,7 @@ jobs:
         env:
           PYTHONPATH: src
         run: >
-          uv run --no-project pytest -c /dev/null -p no:cacheprovider
+          .venv/bin/python -m pytest -c /dev/null -p no:cacheprovider
           tests/test_core/test_unannotated_prompts.py tests/test_core/test_prompt.py
           tests/test_storage
 
