@@ -430,6 +430,64 @@ class {optimized_class.__name__}(Prompt):
             typer.echo(f"Error during optimization: {e}", err=True)
             raise typer.Exit(1) from None
 
+    @app.command("compare")
+    def compare_cmd(
+        variants_file: str = Argument(
+            ..., help="Python file defining VARIANTS = {...} or Prompt classes"
+        ),
+        dataset: str = Argument(..., help="JSONL dataset, one example per line"),
+        model: str = Option("gpt-4o", "--model", "-m", help="Default model"),
+        metric: str = Option(
+            "contains",
+            "--metric",
+            help="Scorer: exact, contains, regex, numeric, similarity",
+        ),
+        control: str = Option(None, "--control", help="Baseline variant name"),
+        runs: int = Option(1, "--runs", help="Runs per input and variant"),
+        confidence: float = Option(0.95, "--confidence", help="Confidence level"),
+        temperature: float = Option(0.0, "--temperature", help="Temperature"),
+        comparisons: str = Option(
+            "control", "--comparisons", help="'control' or 'all' (pairs)"
+        ),
+        expected_key: str = Option("expected", "--expected-key"),
+        input_key: str = Option("input", "--input-key"),
+        variants_attr: str = Option("VARIANTS", "--variants-attr"),
+        markdown: str = Option(
+            None, "--markdown", help="Append a Markdown report to this file"
+        ),
+        html: str = Option(None, "--html", help="Write an HTML report"),
+        json_out: str = Option(None, "--json", help="Write the result as JSON"),
+        fail_on_regression: bool = Option(
+            False,
+            "--fail-on-regression",
+            help="Exit 1 if a variant is significantly worse than the control",
+        ),
+    ) -> None:
+        """Compare variants on a dataset with paired significance tests."""
+        from flowprompt.cli.compare_cmd import run_compare_command
+
+        code = run_compare_command(
+            variants_file,
+            dataset,
+            model=model,
+            metric=metric,
+            control=control,
+            runs=runs,
+            confidence=confidence,
+            temperature=temperature,
+            comparisons=comparisons,
+            expected_key=expected_key,
+            input_key=input_key,
+            variants_attr=variants_attr,
+            markdown=markdown,
+            html=html,
+            json_path=json_out,
+            fail_on_regression=fail_on_regression,
+            echo=typer.echo,
+        )
+        if code:
+            raise typer.Exit(code)
+
     return app
 
 
