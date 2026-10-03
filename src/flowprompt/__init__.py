@@ -83,6 +83,7 @@ from flowprompt.core.streaming import (
     StreamChunk,
     StreamingResponse,
 )
+from flowprompt.core.usage import CallUsage, track_usage
 
 # Storage / YAML Loading
 from flowprompt.storage.yaml_loader import (
@@ -133,6 +134,9 @@ __all__ = [
     "FileCache",
     "get_cache",
     "configure_cache",
+    # Usage & cost accounting
+    "CallUsage",
+    "track_usage",
     # Tracing
     "Tracer",
     "SpanContext",

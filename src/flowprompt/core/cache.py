@@ -229,6 +229,11 @@ class PromptCache:
         self._hits = 0
         self._misses = 0
 
+    @property
+    def enabled(self) -> bool:
+        """Whether the cache stores and serves entries."""
+        return self._enabled
+
     def _generate_key(
         self,
         prompt_hash: str,
@@ -317,6 +322,9 @@ class PromptCache:
 
 # Global cache instance
 _global_cache: PromptCache | None = None
+# Prompt.run() only consults the cache after configure_cache() was called,
+# so that merely inspecting get_cache() never changes model outputs.
+_cache_configured: bool = False
 
 
 def get_cache() -> PromptCache:
@@ -327,13 +335,35 @@ def get_cache() -> PromptCache:
     return _global_cache
 
 
+def get_active_cache() -> PromptCache | None:
+    """Return the cache ``Prompt.run()`` should use, or None.
+
+    The global cache is used once :func:`configure_cache` has been called
+    with ``enabled=True``.
+    """
+    if not _cache_configured or _global_cache is None:
+        return None
+    return _global_cache if _global_cache.enabled else None
+
+
 def configure_cache(
     backend: CacheBackend | None = None,
     default_ttl: float | None = 3600,
     enabled: bool = True,
 ) -> PromptCache:
-    """Configure the global cache."""
-    global _global_cache
+    """Configure the global cache used by ``Prompt.run()`` and ``arun()``.
+
+    After this call, identical requests (same messages, model, temperature,
+    output schema and generation parameters) are answered from the cache
+    without an LLM call. Streaming calls are not cached.
+
+    Note:
+        A cache returns the same answer for repeated identical requests. If
+        you use ``compare(..., runs_per_input>1)`` to measure run-to-run
+        variation at ``temperature > 0``, disable the cache for that run.
+    """
+    global _global_cache, _cache_configured
+    _cache_configured = True
     _global_cache = PromptCache(
         backend=backend,
         default_ttl=default_ttl,

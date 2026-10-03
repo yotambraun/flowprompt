@@ -254,6 +254,11 @@ class Tracer:
                 otel_span.set_attribute("duration_ms", context.duration_ms or 0)
                 otel_span.end()
 
+    @property
+    def enabled(self) -> bool:
+        """Whether spans are recorded."""
+        return self._enabled
+
     def get_spans(self) -> list[SpanContext]:
         """Get all recorded spans."""
         return self._spans.copy()
@@ -317,6 +322,17 @@ def get_tracer() -> Tracer:
     global _global_tracer
     if _global_tracer is None:
         _global_tracer = Tracer()
+    return _global_tracer
+
+
+def get_active_tracer() -> Tracer | None:
+    """Return the tracer ``Prompt.run()`` reports to, or None.
+
+    Spans are recorded once a global tracer exists, i.e. after
+    :func:`configure_tracer` or :func:`get_tracer` has been called.
+    """
+    if _global_tracer is None or not _global_tracer.enabled:
+        return None
     return _global_tracer
 
 
