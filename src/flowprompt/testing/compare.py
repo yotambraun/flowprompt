@@ -956,6 +956,18 @@ def _finish(
         model=model,
         notes=notes,
     )
+    better = [
+        c.treatment
+        for c in comparisons
+        if c.significant and (c.difference or 0.0) > 0 and c.treatment != winner
+    ]
+    if comparison_mode == "control" and winner and better:
+        result.notes.append(
+            f"{', '.join(str(b) for b in better)} also beat {control} significantly; "
+            f"{winner} has the largest difference, but it was not tested against "
+            f"{'it' if len(better) == 1 else 'them'} directly. Use "
+            "comparisons='all' to test every pair."
+        )
     if not result.enough_data:
         result.notes.append(
             f"Not enough data: with {len(inputs)} inputs no difference can reach "
